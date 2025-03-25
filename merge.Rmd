@@ -140,6 +140,62 @@ df4_avg <- df4 %>%
 df4_avg
 ```
 
+## Kmeans Grouping for location
+
+```{r}
+library(ggplot2)
+
+set.seed(42)
+
+# distionct lat and lon
+distinct_locations <- df1 %>%
+  select(lon, lat) %>%
+  distinct()
+
+# KMeans clustering on these distinct locations
+kmeans_result <- kmeans(distinct_locations[, c("lon", "lat")], centers = 6)
+```
+
+```{r}
+cluster_df <- distinct_locations %>%
+  mutate(Cluster_drop = as.factor(kmeans_result$cluster))
+write.csv(cluster_df, "6location_clusters.csv", row.names = FALSE)
+```
+
+```{r}
+df1_avg <- df1_avg %>%
+  left_join(cluster_df, by = c("lon", "lat"))
+```
+
+```{r}
+df1_avg
+```
+
+```{r}
+my_colors <- c(
+  "1" = "#e41a1c",  # red
+  "2" = "#377eb8",  # blue
+  "3" = "#4daf4a",  # green
+  "4" = "#984ea3",  # purple
+  "5" = "#ff7f00",  # orange
+  "6" = "#ffff33"   # yellow
+)
+
+# Plot with custom colors
+ggplot(df1_avg, aes(x = lon, y = lat, color = Cluster_drop)) +
+  geom_point(size = 3, shape = 21, stroke = 1) +
+  scale_color_manual(values = my_colors) +
+  labs(
+    title = "K-Means Clustering of Stations Based on Location",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Cluster"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(title.position = "top"))
+```
+
 ## Grain Size and Weight-Based Calculations
 
 ### Wet and Dry Weights

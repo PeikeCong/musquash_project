@@ -1,0 +1,630 @@
+---
+title: "Data Cleaning"
+format: html
+editor: visual
+---
+
+## Data Cleaning
+
+```{r}
+library(png)
+library(ggplot2)
+library(ggmap)
+library(entropart)
+library(dplyr)
+Benthos <- read.csv("Musquash_MPA_Benthos_Infauna.csv", fileEncoding = "latin1", header = TRUE)%>%select(!scientificNameID_Identifiant_du_nom_scientifique)
+Grain <- read.csv(file = 'Musquash_MPA_Sediment_Grain_Size.csv', fileEncoding = "latin1", header = TRUE)%>%select(!(lat:station))
+Ign <- read.csv(file = 'Musquash_MPA_Sediment_Loss_Ignition.csv', fileEncoding = "latin1", header = TRUE)%>%select(!(lat:station))
+
+Set <- read.csv(file = 'Musquash_MPA_Set_Data.csv', fileEncoding = "latin1", header = TRUE)%>% select(set_id, depth_m_profondeur_m, time_heure) ## Removing unneeded columns, Intresting idea to look at night and day levels though there are nulls for time 
+Set
+```
+
+Quick look at spatial plots
+
+```{r}
+Ben_loc <- data.frame(x = Benthos$lon, y = Benthos$lat)
+
+Grain_loc <- data.frame(x = Grain$lon, y = Grain$lat)
+
+Ign_loc <- data.frame(x = Ign$lon, y = Ign$lat)
+
+
+register_stadiamaps("ae8995ae-5479-419d-bdf1-409400f95861", write = TRUE)
+
+
+
+
+# Define bounding box
+xmin <- -66.3333
+xmax <- -66.2167
+ymin <- 45.125
+ymax <- 45.2000
+
+
+
+# Get satellite imagery using Stamen Maps (you can adjust the source)
+map <- get_stadiamap(bbox = c(left = xmin, bottom = ymin, right = xmax, top = ymax), 
+                     maptype = "outdoors", zoom = 12)
+
+
+
+# Plot
+p1<-ggmap(map) +
+  geom_point(data = Ben_loc, aes(x, y, color=factor(Benthos$strata_strate)), size=3) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_minimal()+
+   scale_color_brewer(palette = "Set1") +
+  labs(color = "Strata") 
+
+
+p2<-ggmap(map) +
+  geom_point(data = Grain_loc, aes(x, y), color="blue", size=3) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_minimal()
+p3<-ggmap(map) +
+  geom_point(data = Ign_loc, aes(x, y), color="yellow", size=3) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_minimal()
+  
+
+print(p1)
+
+```
+
+Data summary function
+
+```{r}
+
+
+list_df <- list(Benthos = Benthos, Ign = Ign, Grain = Grain, Set = Set)
+summarize_df<- function(df,df_name){
+
+  data.frame(Dataset = df_name,
+             Column = names(df),
+             Type = sapply(df, class),
+             Non_NA_count = sapply(df, function(col) sum(!is.na(col))))
+}
+
+
+
+
+output_table<-bind_rows(lapply(names(list_df), function(name){summarize_df(list_df[[name]],name)}))
+
+
+
+```
+
+```{r}
+Ign<-Ign %>% filter(!is.na(replicate_réplicat))
+Grain <-Grain %>%
+  add_count(set_id, replicate_réplicat) %>%
+  filter(n == 1) %>%
+  select(-n)  # optional: remove count column
+Set<- Set%>%filter(set_id!='2016.01.001')
+
+library(suncalc)
+# easiest to just inner join multiple times 
+df_merged <- inner_join(Ign, Grain ,by = c("set_id", 'replicate_réplicat'))
+df_merged <- inner_join(Benthos, df_merged ,by = c("set_id")) #write over
+df_final <-inner_join(Set, df_merged, by='set_id')%>%select(!starts_with('gross')&!contains('cont'))%>%select(!(ash_2_g)&!(ash_1_g)) #remove inital unessasry columns, removes gross and containter weights also
+
+
+
+df_final<- rename_with(
+  df_final,
+   ~ make.unique(sub("_.*", "", .x)),
+  all_of(names(df_final)[2:12])
+)%>%rename(replicate = "replicate_réplicat") #clean col names
+
+
+
+df_final<-df_final%>% 
+  mutate(
+  Datetime = as.POSIXct(paste(year, month, day, time), format="%Y %m %d %H:%M",  tz="America/Halifax"), #Date +Time
+  Dates = as.Date(paste(year, month, day, sep="-")))%>% #Date only
+  rowwise()%>% #needs to be rowwise for fucntion, there are a bunch other intresting options
+  mutate(
+    Sunset_Time = getSunlightTimes(date = Dates, lat = lat, lon = lon, tz = "America/Halifax")$sunset)%>%ungroup()%>%
+  mutate(Sunset = Sunset_Time<Datetime)%>% #Boolean 
+  mutate(frac_fine_sand=net_dry_250um_g/net_dry_wt_g.y, #Wentworth grain size class
+          frac_very_fine_sand=net_dry_125um_g/net_dry_wt_g.y,
+          frac_Silt=net_dry_64um_g/net_dry_wt_g.y,
+         frac_total_silt = silt_frac_g/net_dry_wt_g.y)%>%select(!contains('net'))%>%select(!contains('sieve'))
+
+names(df_final)
+# write.csv(df_final, "shannon_entropy_analysis.csv", row.names = FALSE)  
+```
+
+#### Columns of Note
+
+```         
+"perc_loss_ash_1__"  "perc_loss_ash_2__"  "tot_perc_loss__"
+```
+
+-   Organic matter lost, can be used as a reference for organic matter. Start with the total, I think that will likely be the most useful.
+
+    ```         
+    "frac_fine_sand"  "frac_very_fine_sand" "frac_Silt"           "frac_total_silt"
+    ```
+
+-   While there is a silt_frac_g parameter, that is misleading as it is the total weight of remaining after filtering with each sieve. The fractions above are a better representation for grain size of the sediment sample.
+
+Function for modelling, use below as an example still figuring out the best parameters. I have removed most of the unnecessary columns.
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(tibble)
+library(ggplot2)
+
+df_wide <- df_final %>%
+  select(set_id, scientificName, total_count) %>%
+  pivot_wider(
+    names_from = scientificName,
+    values_from = total_count,
+    values_fn = sum,
+    values_fill = 0
+  )
+
+
+df_filtered <- df_wide %>%
+  mutate(total_individuals = rowSums(across(-set_id))) %>%
+  filter(total_individuals > 500) %>%
+  select(-total_individuals)
+
+
+# Save set_id separately before removing it from the dataframe
+set_ids <- df_filtered$set_id
+
+# Step 2: Convert to matrix with rownames
+species_matrix <- df_filtered %>%
+  column_to_rownames("set_id")
+
+# Step 3: Rarefaction summary (bar plot)
+min_count <- rowSums(species_matrix) %>% min()
+rarefied <- rarefy(species_matrix, sample = min_count)
+
+f_rarefied <- tibble(set_id = rownames(species_matrix),
+                     rarefied_richness = rarefied)
+
+# Bar plot of rarefied richness
+ggplot(f_rarefied, aes(x = set_id, y = rarefied_richness)) +
+  geom_col(fill = "darkgreen") +
+  labs(title = "Rarefied Species Richness per Set",
+       x = "Set ID", y = "Rarefied Richness") +
+  theme_minimal()
+
+# Step 4: Rarefaction curve
+rarecurve(species_matrix,
+          step = 1,
+          sample = min_count,
+          col = rainbow(nrow(species_matrix)),
+          label = TRUE,
+          xlab = "Number of Individuals Sampled",
+          ylab = "Species Richness",
+          main = "Rarefaction Curves by Set")
+
+```
+
+```{r}
+
+innerjoin(data.frame(rarefied)
+```
+
+```{r}
+df_final$tot_perc_loss__ <- df_final$tot_perc_loss__/100
+library(tidyr)
+library(vegan)
+library(ggplot2)
+library(ggeffects)
+library(lme4)
+
+df_final$season <- relevel(factor(df_final$season), ref = "Winter")
+df_final$strata <-as.factor(df_final$strata)
+df_final$year <-as.factor(df_final$year)
+
+
+
+richness_fun <- function(x){
+  r<- sum(x>0,na.rm=TRUE)
+  return (r)
+}
+
+shannon_entropy_fun <-function(x){
+  p<-x/sum(x,na.rm=TRUE)
+  p <- p[p > 0]
+  return(-sum(p*log(p),na.rm=TRUE))
+  
+}
+
+simpson_fun <-function(x){
+  n <-sum(x,na.rm=TRUE)
+  
+  return(sum((x*(x-1))/(n*(n-1))))
+  
+}
+
+
+
+data <- df_final %>%group_by(set_id) %>%summarize( station = first(station),
+                                                   set_id = first(set_id),
+                                                   year = first(year),
+                                           depth = first(depth),
+                                           Sunset = first(Sunset),
+                                           season = first(season),
+                                           strata = first(strata),
+    silt_frac_g = first(silt_frac_g),
+    frac_silt = first(frac_total_silt),
+    tot_perc_loss = first(tot_perc_loss__), 
+    sobs = richness_fun(total_count), 
+    shannon = shannon_entropy_fun(total_count), 
+    simpson = simpson_fun(total_count), 
+    invsimpson = 1/simpson, 
+    n= sum(total_count),
+    lat = first(lat),
+    lon = first(lon),
+    
+    .groups = "drop")
+data$season <- relevel(factor(data$season), ref = "Winter")
+data$strata <-as.factor(data$strata)
+data$year <-as.factor(data$year)
+data$n_scale <-scale(data$n)
+data$frac_silt <-scale(data$frac_silt)
+data$tot_perc_loss <-scale(data$tot_perc_loss)
+
+
+library(lme4)
+library(ggplot2)
+library(lmerTest)
+
+
+metrics <- c("shannon")  
+lm_mod <- list()
+mod <- list()
+
+for (m in metrics) {
+  cat("\n--- Metric:", m, "---\n")
+  
+  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + frac_silt + tot_perc_loss + n_scale"))
+  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + frac_silt + tot_perc_loss + n_scale "))
+
+  if (m %in% c("sobs", "n")) {
+    # Poisson models for count data
+    mod[[m]]    <- glmer(formula_lmer, data = data, family = poisson)
+    lm_mod[[m]] <- glm(formula_lm, data = data, family = poisson)
+
+    print(summary(lm_mod[[m]]))
+    AIC(lm_mod[[m]], mod[[m]])
+    
+    cat("\nStepwise AIC for", m, ":\n")
+    step_fit <- step(lm_mod[[m]], trace = FALSE)
+    print(summary(step_fit))
+    
+  } else {
+    
+    lm_mod[[m]] <- lm(formula_lm, data = data)
+    mod[[m]]    <- lmer(formula_lmer, data = data)
+    
+    cat("\nLinear model ANOVA for", m, ":\n")
+    print(summary(lm_mod[[m]]))
+    print(anova(lm_mod[[m]]))
+    
+    cat("\nMixed model ANOVA for", m, ":\n")
+    print(summary(mod[[m]]))
+    print(anova(mod[[m]]))
+    lm_mod[[m]]|>plot()
+    # Residual diagnostics
+    par(mfrow = c(1, 2))
+    plot(fitted(mod[[m]]), resid(mod[[m]]),
+         main = paste("Residuals vs Fitted:", m),
+         xlab = "Fitted", ylab = "Residuals")
+    abline(h = 0, col = "red")
+    
+    qqnorm(resid(mod[[m]]), main = paste("QQ-Plot:", m))
+    qqline(resid(mod[[m]]))
+    par(mfrow = c(1, 1))
+  }
+  
+  # Plot observed vs. fitted (for all models)
+  if (m == "shannon") {
+    plot(fitted(lm_mod[[m]]), lm_mod[[m]]$model[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lm):", m))
+    abline(0, 1, col = "red", lty = 2)
+
+    plot(fitted(mod[[m]]), mod[[m]]@frame[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lmer):", m))
+    abline(0, 1, col = "blue", lty = 2)
+  }
+}
+formula(mod[[m]])
+
+
+
+y_obs <- model.response(model.frame(mod[[m]]))
+x_fit <- fitted(mod[[m]])
+
+plot(x_fit, y_obs,
+     xlab = "Fitted values", ylab = "Observed",
+     main = paste("Observed vs Fitted (lmer):", m),
+     pch = 19)
+abline(0, 1, col = "blue", lty = 2)
+```
+
+```{r}
+
+
+```
+
+```{r}
+ggplot(data, aes(x = season, y = shannon)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Shannon Diversity by Season", x = "Season", y = "Shannon Index") +
+  theme_minimal()
+
+
+ggplot(data, aes(x = season, y = sobs)) +  # species richness
+  geom_boxplot() +
+  labs(title = "Benthic Species Richness by Season")
+```
+
+```{r}
+set.seed(50)
+
+# Make sure factor variables are properly treated
+data$season <- as.factor(data$season)
+data$year <- as.factor(data$year)
+data$strata <- as.factor(data$strata)
+all_preds <- data.frame()
+
+n <- nrow(data) #number of rows, 44
+k <- 5
+rmse_lmer <- numeric(k) ## to store RMSE later
+rmse_lm   <- numeric(k)
+rmse_base <- numeric(k)
+
+
+folded_data <- data%>%mutate(folds = sample(rep(1:k,length.out = nrow(data))))
+#Add indices for fold group.
+
+for(i in 1:k){
+  train_data <- folded_data%>%filter(folds != i )%>%select(!(folds)) 
+  #remove extra rows, selecting all values not in fold group. 
+  test_data <- folded_data%>%filter(folds == i )%>%select(!(folds))
+  
+  if (nrow(train_data) < 10 | nrow(test_data) == 0) {
+    cat("Fold too small. Skipping...\n")
+    next
+  }
+  
+  lmer_model <- lmer(shannon ~ (1|season)+ (1|year) + strata + frac_silt + tot_perc_loss, data = train_data, control = lmerControl(optimizer = "bobyqa"))
+  
+   lm_model <- lm(shannon ~ season + year + strata + frac_silt + tot_perc_loss, data = train_data)
+
+  
+  
+  
+  pred_lmer <- predict(lmer_model, newdata = test_data, allow.new.levels = TRUE)
+  pred_lm   <- predict(lm_model, newdata = test_data)
+  pred_base <- rep(mean(train_data$shannon), nrow(test_data))
+  
+    if (any(is.na(pred_lmer)) | any(is.na(pred_lm))) {
+    rmse_lmer[i] <- NA
+    rmse_lm[i] <- NA
+    fold_preds <- data.frame(
+    fold = i,
+    actual = test_data$shannon,
+    pred_lmm = pred_lmer,
+    pred_lm = pred_lm
+  )
+  all_preds <- rbind(all_preds, fold_preds)
+    next
+  }
+  
+  rmse_lmer[i] <- rmse(test_data$shannon, pred_lmer )
+  rmse_lm[i] <- rmse(test_data$shannon, pred_lm)
+  rmse_base[i] <- rmse(test_data$shannon, pred_base)
+  
+  
+}
+
+cat("Folds with LMM NAs:", sum(is.na(rmse_lmer)), "\n")
+cat("Folds with LM  NAs:", sum(is.na(rmse_lm)), "\n")
+# Summarize RMSE results
+cat("Average RMSE (LMM):    ", round(mean(rmse_lmer), 4), "\n")
+cat("Average RMSE (Linear):", round(mean(rmse_lm), 4), "\n")
+cat("Average RMSE (Baseline):", round(mean(rmse_base), 4), "\n")
+
+# Optional: check difference
+cat("Improvement of LMM over baseline:", round(mean(rmse_base) - mean(rmse_lmer), 4), "\n")
+cat("Improvement of LM  over baseline:", round(mean(rmse_base) - mean(rmse_lm), 4), "\n")
+
+plot(fold_preds$actual,fold_preds$pred_lmer )
+
+
+```
+
+Struggling to get the cross validation to work, what I am seeming though
+
+```{r}
+library(mgcv)
+library(gratia)
+
+gam_model <- gam(
+   shannon ~ s(depth) + s(tot_perc_loss)+ s(frac_silt)+ strata + season + year+ s(lat, lon),
+  data = data,
+  method = "REML"
+)
+
+
+gam_model |> summary()
+gam_model |> plot()
+gam_model |> gam.check()
+
+vis.gam(x = mod_gamm$gam,                # GAM object
+        view = c("lat", "lon"),   # variables
+        plot.type = "persp", , too.far = 0.1)
+
+
+library(mgcv)
+
+# Fit GAMM with random effect for strata
+mod_gamm <- gamm(shannon ~ season + year  + s(depth) + s(tot_perc_loss)+ s(frac_silt) + s(lat, lon),
+                 random = list(strata = ~1),
+                 data = data)
+
+# View model summary
+summary(mod_gamm$gam)
+
+
+
+
+plot(mod_gamm$gam, residuals = TRUE, pch = 19, cex = 0.3)
+
+plot(mod_gamm$gam, scheme = 2)
+
+vis.gam(x = mod_gamm$gam,                # GAM object
+        view = c("lat", "lon"),   # variables
+        plot.type = "persp", , too.far = 0.1)
+AIC(gam_model)            # From gam()
+AIC(mod_gamm$lme)
+
+
+
+```
+
+```{r}
+
+library(ggplot2)
+library(ggmap)
+
+register_stadiamaps("ae8995ae-5479-419d-bdf1-409400f95861", write = TRUE)
+
+
+
+
+# Define bounding box
+xmin <- -66.3333
+xmax <- -66.2167
+ymin <- 45.125
+ymax <- 45.2000
+
+
+
+# Get satellite imagery using Stamen Maps (you can adjust the source)
+map <- get_stadiamap(bbox = c(left = xmin, bottom = ymin, right = xmax, top = ymax), 
+                     maptype = "terrain", zoom = 12)
+
+
+df <-data.frame(lat= data$lat,lon = data$lon)
+# Plot the basemap
+ggmap(map) +
+  geom_point(data = df, aes(x= lon, y = lat), color="blue", size=3) +
+  xlab("Longitude") + ylab("Latitude") +
+  theme_minimal()
+```
+
+```{r}
+library(mgcv)
+library(sf)
+library(rnaturalearth)
+
+# Get land polygons
+land <- ne_download(scale = "medium", type = "land", category = "physical", returnclass = "sf")
+
+grid <- expand.grid(
+  lon = seq(-64, -63.2, length.out = 100),
+  lat = seq(44.4, 44.9, length.out = 100)
+)
+grid
+grid_water_df <- cbind(st_coordinates(grid_water), as.data.frame(grid_water))
+
+
+names(grid_water_df)[1:2] <- c("lon", "lat")
+
+
+grid_water_df$season <- factor("Summer", levels = levels(data$season))
+grid_water_df$year <- factor("2017", levels = levels(data$year))
+grid_water_df$strata <- factor("subtidal", levels = levels(data$strata))
+grid_water_df$depth <- mean(data$depth, na.rm = TRUE)
+grid_water_df$frac_silt <- 0
+grid_water_df$tot_perc_loss <- 0
+
+
+grid_water_df$fit <- predict.gam(gam_model, newdata = grid_water_df)
+grid_water_df
+
+
+ggmap(map) +
+  geom_tile(data = grid_water_df, aes(x = lon, y = lat, fill = fit), alpha = 0.7) +
+  scale_fill_viridis_c() +
+  labs(title = "Predicted Shannon diversity (Fall 2022)", fill = "Shannon") +
+  theme_minimal()
+```
+
+```{r}
+library(modelsummary)
+|>plot()
+modelsummary(gam_model, 
+             statistic = c("std.error", "statistic", "p.value"),
+             fmt = 3)
+
+modelplot(gam_model)+
+  aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
+  scale_color_manual(values = c("grey", "black"))
+```
+
+```{r}
+residuals<- mod[['shannon']] |> residuals()
+predicted<- mod[['shannon']] |> predict()
+(residuals ~ predicted) |> plot(pch = 19, cex = 0.2)
+abline(0, 0, col = "blue", lty = 2)
+
+mod[['shannon']]|>summary()
+```
+
+```{r}
+hist(rowSums(species_matrix), breaks = 50, main = "Sampling Effort", xlab = "Individuals per Sample")
+abline(v = 500, col = "red", lty = 2)
+```
+
+```{r}
+modelsummary(
+  list("Linear Model" = lm_mod[['shannon']], "Linear Mixed Model" = mod[['shannon']]),
+  statistic = 'p.value',
+  stars = TRUE,
+  title = "Comparison of Shannon Diversity Models", coef_omit = "^(?!season|year2015|strata)", gof_omit = "Obs|BIC|ICC|Log|RMSE"
+)
+```
+
+```{r}
+
+rarifed_richness_df <-function(df_wide, rarification_depth){
+  apply(df_wide, 1, function(counts){
+    
+    N_samples <- sum(counts)
+    if (rarification_depth > N) return(NA)
+    richness <-sapply(counts[counts>0], function(xi){
+      1-exp(lchoose(N-xi, rarification_depth)- lchoose(N, rarification_depth))
+    })
+  })
+  sum(richness)
+  
+}
+
+rarefied_df <- data.frame(
+  set_id = names(rarefied),
+  Rarefied = as.numeric(rarefied),
+  row.names = NULL
+)
+
+
+joined_df <- inner_join(data, rarefied_df, by = "set_id")
+joined_df$rarefied_rounded <- round(joined_df$Rarefied)
+
+glm(rarefied_rounded ~ year+season +depth+frac_silt+tot_perc_loss, data =joined_df, family = 'poisson')|>step()
+
+```

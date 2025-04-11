@@ -1,0 +1,315 @@
+---
+title: "Merge_dataset"
+output: html_notebook
+---
+
+# Load Data
+
+```{r}
+library(readr)
+
+df1 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Benthos_Infauna.csv", encoding = 'latin1')
+df2 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Sediment_Grain_Size.csv", encoding = 'latin1')
+df3 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Sediment_Loss_Ignition.csv", encoding = 'latin1')
+df4 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Set_Data.csv", encoding = 'latin1')
+```
+
+## Shannon index caculation -\> df_with_richness
+
+```{r}
+library(dplyr)
+# check is set_id unique to strata
+all_same <- df1 %>%
+  group_by(set_id) %>%
+  summarise(n_strata = n_distinct(strata_strate)) %>%
+  summarise(all_unique = all(n_strata == 1))
+print(all_same)
+```
+
+```{r}
+# Step 1: Group data by set_id, and scientific name, and sum total_count
+species_counts <- df1 %>%
+  group_by(set_id, scientificName_Nom_scientifique) %>%
+  summarise(total_count = sum(total_count, na.rm = TRUE), .groups = "drop")
+
+# Step 2: Define Shannon Index calculation function
+shannon_index <- function(counts) {
+  total <- sum(counts)
+  p_i <- counts / total
+  -sum(p_i * log(p_i), na.rm = TRUE)
+}
+
+# Step 3: Apply Shannon Index per group (set_id)
+shannon_indices <- species_counts %>%
+  group_by(set_id) %>%
+  summarise(shannon_index = shannon_index(total_count), .groups = "drop")
+
+# Step 4: Merge Shannon index back to original df1
+df_with_shannon <- df1 %>%
+  left_join(shannon_indices, by = c("set_id"))
+```
+
+```{r}
+# Step 5: Merge species richness with Shannon index
+species_richness <- df1 %>%
+  group_by(set_id) %>%
+  summarise(species_richness = n_distinct(scientificName_Nom_scientifique), .groups = "drop")
+
+df_with_richness <- df_with_shannon %>%
+  left_join(species_richness, by = c("set_id"))
+```
+
+```{r}
+df_with_richness
+```
+
+```{r}
+df_with_richness <- df_with_richness %>%
+  filter(species_richness != 1)
+```
+
+## Mean of replicates
+
+### df1
+
+```{r}
+# Step 1: Separate numeric and categorical columns
+num_cols <- df_with_richness %>% select(where(is.numeric)) %>% colnames()
+cat_cols <- df_with_richness %>% select(where(~ is.character(.) || is.factor(.))) %>% colnames()
+
+# Step 2: Define grouping column
+group_cols <- "set_id"
+
+# Step 3: Group and summarise
+df1_avg <- df_with_richness %>%
+  group_by(across(all_of(group_cols))) %>%
+  summarise(
+    # Keep the first value for each categorical column
+    across(all_of(setdiff(cat_cols, group_cols)), ~ first(.x), .names = "{.col}"),
+    
+    # Average the numeric columns
+    across(all_of(setdiff(num_cols, group_cols)), ~ mean(.x, na.rm = TRUE), .names = "{.col}"),
+    
+    .groups = "drop"
+  )
+```
+
+```{r}
+df1_avg
+```
+
+### df2, df3
+
+```{r}
+# For df2
+df2_avg <- df2 %>%
+  select(-replicate_réplicat) %>%
+  group_by(set_id) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+
+# For df3
+df3_avg <- df3 %>%
+  select(-replicate_réplicat) %>%
+  group_by(set_id) %>%
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+```
+
+```{r}
+df2_avg
+```
+
+### df4
+
+```{r}
+# Assuming group_cols has already been defined, e.g.:
+group_cols <- "set_id"
+
+# Get numeric column names in df4
+num_cols <- df4 %>% select(where(is.numeric)) %>% colnames()
+
+# Calculate mean of all numeric columns except the group column
+df4_avg <- df4 %>%
+  group_by(across(all_of(group_cols))) %>%
+  summarise(across(
+    all_of(setdiff(num_cols, group_cols)),
+    \(x) mean(x, na.rm = TRUE)
+  ), .groups = "drop")
+```
+
+```{r}
+df4_avg
+```
+
+## Kmeans Grouping for location
+
+```{r}
+library(ggplot2)
+
+set.seed(42)
+
+# distionct lat and lon
+distinct_locations <- df1 %>%
+  select(lon, lat) %>%
+  distinct()
+
+# KMeans clustering on these distinct locations
+kmeans_result <- kmeans(distinct_locations[, c("lon", "lat")], centers = 6)
+```
+
+```{r}
+cluster_df <- distinct_locations %>%
+  mutate(Cluster_drop = as.factor(kmeans_result$cluster))
+write.csv(cluster_df, "6location_clusters.csv", row.names = FALSE)
+```
+
+```{r}
+df1_avg <- df1_avg %>%
+  left_join(cluster_df, by = c("lon", "lat"))
+```
+
+```{r}
+df1_avg
+```
+
+```{r}
+my_colors <- c(
+  "1" = "#e41a1c",  # red
+  "2" = "#377eb8",  # blue
+  "3" = "#4daf4a",  # green
+  "4" = "#984ea3",  # purple
+  "5" = "#ff7f00",  # orange
+  "6" = "#ffff33"   # yellow
+)
+
+# Plot with custom colors
+ggplot(df1_avg, aes(x = lon, y = lat, color = Cluster_drop)) +
+  geom_point(size = 3, shape = 21, stroke = 1) +
+  scale_color_manual(values = my_colors) +
+  labs(
+    title = "K-Means Clustering of Stations Based on Location",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Cluster"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(title.position = "top"))
+```
+
+## Grain Size and Weight-Based Calculations
+
+### Wet and Dry Weights
+
+```{r}
+df2_avg <- df2_avg %>%
+  mutate(
+    wet_weight = gross_wet_wt_g - cont_wt_g,
+    dry_weight = gross_dry_wt_g - cont_wt_g,
+    water_content_ratio = (wet_weight - dry_weight) / wet_weight
+  )
+```
+
+-   **wet_weight**: Wet weight of sample (excluding container).
+
+-   **dry_weight**: Dry weight of sample (excluding container).
+
+-   **water_content_ratio**: Proportion of water by wet weight; reflects moisture content.
+
+### Particle Size Distribution (Net Dry Weights)
+
+```{r}
+df2_avg <- df2_avg %>%
+  mutate(
+    total_fraction_weight = net_dry_250um_g + net_dry_125um_g + net_dry_64um_g + silt_frac_g,
+    sand_pct = (net_dry_250um_g + net_dry_125um_g) / total_fraction_weight,
+    fine_sand_pct = net_dry_64um_g / total_fraction_weight,
+    silt_clay_pct = silt_frac_g / total_fraction_weight
+  )
+```
+
+-   **sand_pct**: Proportion of coarse particles (\>125 µm).
+
+-   **fine_sand_pct**: Proportion of 64 µm particles.
+
+-   **silt_clay_pct**: Proportion of particles \<64 µm.
+
+### Sediment Organic Matter - Loss on Ignition (LOI)
+
+```{r}
+df3_avg <- df3_avg %>%
+  mutate(
+    air_dry_wt = air_cont_g - cont_g,
+    oven_dry_wt = oven_cont_g - cont_g,
+    loss_ash1 = ash_1_g,
+    loss_ash2 = ash_1_g - ash_2_g,
+    perc_loss_ash_1_calc = (loss_ash1 / oven_dry_wt) * 100,
+    perc_loss_ash_2_calc = (loss_ash2 / ash_1_g) * 100
+  )
+```
+
+-   **air_dry_wt**: Air-dried sediment sample weight.
+
+-   **oven_dry_wt**: Oven-dried sediment weight.
+
+-   **loss_ash1**: Loss of organic matter after 475°C combustion (Phase 1).
+
+-   **loss_ash2**: Additional loss after 950°C combustion (Phase 2).
+
+-   **perc_loss_ash_1_calc** and **perc_loss_ash_2_calc**: Recalculated organic loss percentages for cross-validation with provided values.
+
+```{r}
+df3_avg
+```
+
+# Merging
+
+## Relevant columns
+
+```{r}
+# Required columns for each dataset
+
+# df1: Benthic Infauna — keep ID + ecological summary info
+cols_df1 <- c(
+  "set_id", "station", "strata_strate", "season_saison",
+  "total_count", "tot_wt_g", "shannon_index", "species_richness"
+)
+
+# df2: Sediment Grain Size — keep values needed for calculations or summaries
+cols_df2 <- c(
+  "set_id", 
+  "wet_weight", "dry_weight", "water_content_ratio",
+  "sand_pct", "fine_sand_pct", "silt_clay_pct"
+)
+
+# df3: Organic Matter — key weights and loss percentages
+cols_df3 <- c(
+  "set_id",
+  "air_dry_wt", "oven_dry_wt", "loss_ash1", 
+  "loss_ash2", "tot_perc_loss__"
+)
+
+# df4: Basic depth info
+cols_df4 <- c("set_id", "depth_m_profondeur_m")
+```
+
+```{r}
+df1_avg <- df1_avg %>% select(all_of(cols_df1))
+df2_avg <- df2_avg %>% select(all_of(cols_df2))
+df3_avg <- df3_avg %>% select(all_of(cols_df3))
+df4_avg <- df4_avg %>% select(all_of(cols_df4))
+```
+
+```{r}
+df_merged <- df1_avg %>%
+  left_join(df2_avg, by = "set_id") %>%
+  left_join(df3_avg, by = "set_id") %>%
+  left_join(df4_avg, by = "set_id")
+```
+
+```{r}
+df_merged
+```
+
+```{r}
+write.csv(df_merged, "E:\\MPA_project\\MPA_merged.csv", row.names = FALSE)
+```

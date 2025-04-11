@@ -8,10 +8,10 @@ output: html_notebook
 ```{r}
 library(readr)
 
-df1 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Benthos_Infauna.csv", encoding = 'latin1')
-df2 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Sediment_Grain_Size.csv", encoding = 'latin1')
-df3 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Sediment_Loss_Ignition.csv", encoding = 'latin1')
-df4 <- read.csv("E:\\MPA_project\\data\\Musquash_MPA_Set_Data.csv", encoding = 'latin1')
+df1 <- read.csv("./data/Musquash_MPA_Benthos_Infauna.csv", encoding = 'latin1')
+df2 <- read.csv("./data/Musquash_MPA_Sediment_Grain_Size.csv", encoding = 'latin1')
+df3 <- read.csv("./data/Musquash_MPA_Sediment_Loss_Ignition.csv", encoding = 'latin1')
+df4 <- read.csv("./data/Musquash_MPA_Set_Data.csv", encoding = 'latin1')
 ```
 
 ## Shannon index caculation -\> df_with_richness

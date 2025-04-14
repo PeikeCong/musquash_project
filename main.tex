@@ -240,6 +240,14 @@ Dalhousie University
 
 \subsection{Data Preprocessing}
 
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{flowchart.png}
+\caption{Flow Chart of Methodology}
+\label{fig:flowchart}
+\end{figure}
+
+
 \qquad Our analysis began with merging four distinct datasets: benthic infauna data, sediment grain size measurements, sediment loss on ignition results, and sampling event metadata. The merge operation utilized \texttt{set\_id} as the primary key, ensuring accurate alignment of measurements across datasets.
 
 \qquad Missing values presented a significant challenge, particularly for sediment characteristics in earlier sampling periods. We employed a multiple imputation approach using the mice package in R, which preserves the relationships between variables while providing plausible values for missing data. This approach is superior to simple mean or median imputation as it accounts for the uncertainty associated with missing values.
@@ -248,47 +256,117 @@ Dalhousie University
 
 \qquad For model development, we standardized all numerical predictors to have mean zero and standard deviation one, facilitating comparison of variable importance across different scales of measurement. The dataset was randomly partitioned into training ($80\%$) and testing ($20\%$) sets to enable unbiased model evaluation.
 
-
 \subsection{Feature Selection}
 
-\qquad To address potential multicollinearity, we calculated Pearson correlation coefficients between all numerical variables. Variables with correlation coefficients exceeding 0.7 were flagged for careful consideration. Additionally, we employed principal component analysis (PCA) to examine relationships between variables, particularly within the sediment moisture/grain size, particle size distribution, and organic matter content variable groups.
+\qquad Feature selection was guided by domain knowledge, focusing on sediment texture, moisture, and organic content—key factors influencing benthic community structure. From the sediment composition dataset (df2), we derived wet weight, dry weight, and water content ratio to reflect moisture levels in each sample. These features help describe the sediment’s physical condition, with water content often influencing oxygen levels and infaunal activity.
 
-\qquad Variance inflation factors (VIFs) were calculated for all potential predictors in our initial linear models. Variables with VIF values exceeding 5 were considered for exclusion or transformation to reduce multicollinearity. This process resulted in a refined set of predictors that minimized redundancy while maximizing explanatory power.
+\qquad To capture sediment texture, we calculated the proportions of sand, fine sand, and silt-clay using net dry weights across sieve sizes. These variables characterize particle size distribution, which plays a critical role in species habitat preferences.
+
+\qquad From the organic matter dataset (df3), we computed air-dried and oven-dried weights, as well as loss on ignition (LOI) at two combustion phases. This allowed us to extract both primary and secondary organic matter loss, offering more robust insight into sediment carbon content. These features were cross-validated with the original loss percentages to ensure consistency.
 
 \subsection{Model Development}
 
-\qquad We employed a regression tree approach as our primary analytical method, implemented using the rpart package in R. Regression trees offer several advantages for ecological data analysis, including:
+\qquad Our modeling approach began with a simple multiple linear regression to establish a baseline and evaluate the linear relationship between the predictors and the Shannon diversity index. This initial model incorporated all selected numerical and categorical features to test overall fit and assumption validity. To refine the model and improve interpretability, we then applied stepwise selection based on the Akaike Information Criterion (AIC), which reduced the model to the most relevant subset of predictors. This step served both as a variable selection technique and a benchmark for model parsimony.
 
-\begin{itemize}
-    \item Ability to capture non-linear relationships without a priori specification
-    \item Automatic handling of interactions between predictors
-    \item Robustness to outliers and missing values
-    \item Interpretable results that align with ecological understanding
-\end{itemize}
+\qquad To further enhance model performance and address potential multicollinearity, we introduced regularization methods, including Lasso, Ridge, and Elastic Net regression. These models were trained with cross-validation and hyperparameter tuning to evaluate generalization and feature shrinkage effects.
 
-\qquad The tree-building process employed recursive partitioning with the goal of minimizing within-node variance. We used 10-fold cross-validation to determine the optimal tree complexity, selecting the simplest tree within one standard error of the minimum cross-validated error (the "one-standard-error rule"). This approach balances model fit against parsimony, reducing the risk of overfitting.
+\qquad Recognizing that the relationships between sediment characteristics and biodiversity may not be strictly linear, we implemented a Generalized Additive Model (GAM). GAM allowed for the inclusion of smooth, nonlinear effects, particularly useful in capturing complex ecological responses to variables such as moisture content, depth, and organic matter. 
 
-\qquad For comparison, we also developed linear regression models using stepwise AIC selection to identify the most parsimonious set of predictors. These models served as a benchmark against which to evaluate the performance of our regression tree approach.
+\qquad However, the presence of grouping structures (e.g., by strata or station) and potential unobserved heterogeneity suggested the need for hierarchical modeling. Therefore, we extended the analysis to include both linear mixed-effects models and Generalized Additive Mixed Models (GAMM), incorporating random effects to account for spatial and sampling variation.
 
-\qquad To address our second research question regarding seasonal and spatial influences, we employed partial regression analysis and variance partitioning techniques. These methods allowed us to quantify the unique contributions of sediment characteristics, seasonal factors, and spatial factors to biodiversity variation.
+\qquad Finally, to explore potential nonlinear interactions and hierarchical splits within the data, we employed regression tree models. These tree-based approaches allowed us to uncover threshold effects and variable importance in a more flexible, non-parametric framework. While not our baseline, these models were useful for interpreting interactions and generating insights beyond traditional regression. A detailed breakdown of model structures, diagnostics, and interpretation is provided in the following analysis section.
 
 \subsection{Model Evaluations}
 
-\qquad Model performance was assessed using multiple criteria:
+\qquad We only used R2 and MSE for model comparison, for stepwise we also used AIC
 
-\begin{itemize}
-    \item Root Mean Square Error (RMSE) on the test dataset
-    \item R-squared values indicating the proportion of variance explained
-    \item Mean Absolute Error (MAE) to quantify prediction accuracy
-    \item Residual diagnostics to verify model assumptions
-\end{itemize}
-
-\qquad For the regression tree, we also calculated variable importance scores based on the reduction in sum of squares achieved by each variable across all splitting nodes.
 
 \newpage
-\section{Analysis}
 
-% paste the code here
+\section{Modeling and Feature Analysis}
+
+\subsection{Part 1: Modeling Without Grouping Structures}
+
+\textbf{Research Question 1:} How does sediment composition explain the variation in infaunal biodiversity within the MPA?
+
+\subsubsection{Linear Regression and Stepwise Selection}
+
+\qquad We began the modeling process with a multiple linear regression using all selected environmental and sediment-related predictors. The initial model achieved an AIC of $–386.89$. To refine the model, stepwise selection based on AIC was performed, which improved the model fit by reducing the AIC to $–400.19$. The final model retained three predictors: \texttt{air\_dry\_wt}, \texttt{tot\_perc\_loss\_\_}, and \texttt{depth\_m\_profondeur\_m}. These variables reflect sediment dryness, organic matter content, and water depth — factors known to influence benthic biodiversity. Residual analysis as shown in Figure~\ref{fig:residual-plots}, confirmed that the linear model met key assumptions. The residuals versus fitted plot showed no clear structure, suggesting that linearity and homoscedasticity were satisfied. The Q-Q plot indicated near-normal residual distribution, while the scale-location and leverage plots showed no signs of heteroscedasticity or influential outliers.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{linear-regression-residual-plots.jpg}
+\caption{Linear Regression Residual Plots}
+\label{fig:residual-plots}
+\end{figure}
+
+
+\subsubsection{Regularized Regression: LASSO, Ridge, and Elastic Net}
+
+\qquad To address multicollinearity and improve model generalizability, we applied regularized regression techniques with cross-validation for hyperparameter tuning as shown in Figures~\ref{fig:reg-plot-lambda-1}, \ref{fig:reg-plot-lambda-2}, and \ref{fig:tune-lambda-mse}. Lasso regression selected a sparse model, identifying \textt{sand\_pct}, \texttt{air\_dry\_wt}, and \texttt{depth\_m\_profondeur\_m} as positive predictors, and \texttt{tot\_perc\_loss\_\_} as a negative predictor. This supports the idea that coarse sediment and depth are favorable for biodiversity, while excess organic matter may reduce oxygen availability. Ridge regression retained all predictors and revealed similar trends, with \texttt{sand\_pct}, \texttt{dry\_weight}, and \texttt{wet\_weight} having positive effects, and \texttt{water\_content\_ratio}, \texttt{loss\_ash2}, and \texttt{tot\_perc\_loss\_\_} showing negative effects. Elastic Net regression, tested at multiple alpha values (e.g., $0.3$, $0.8$), balanced sparsity and model stability, but did not outperform Ridge. Ridge regression achieved the lowest test MSE ($0.2353$), suggesting it offered the best generalization performance.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{regularization-plot-with-different-lambda-value-1.jpg}
+\caption{Regularization Plot with Different Lambda Values (Set 1)}
+\label{fig:reg-plot-lambda-1}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{regularization-plot-with-different-lamda-value-2.png}
+\caption{Regularization Plot with Different Lambda Values (Set 2)}
+\label{fig:reg-plot-lambda-2}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{tune-best-lambda-value-using-MSE.jpg}
+\caption{Tuning the Best Lambda Value Using Mean Squared Error}
+\label{fig:tune-lambda-mse}
+\end{figure}
+
+\subsubsection{Generalized Additive Model (GAM)}
+
+\qquad To capture nonlinear relationships, a Generalized Additive Model (GAM) was employed. Several predictors showed significant effects as shown in Figure~\ref{fig:gam-smooth}, including \texttt{air\_dry\_wt} ($p < 0.001$), \texttt{tot\_perc\_loss\_\_} ($p < 0.01$), \texttt{depth\_m\_profondeur\_m} ($p < 0.001$), \texttt{tot\_wt\_g}, and \texttt{oven\_dry\_wt}. The smooth term for \texttt{water\_content\_ratio} revealed a U-shaped relationship, with lower biodiversity observed at intermediate moisture levels, potentially due to compaction or anoxic conditions. \texttt{tot\_perc\_loss\_\_} showed a declining effect that plateaued, suggesting that while moderate organic content can be beneficial, excessive amounts may hinder oxygen exchange. \texttt{loss\_ash2}, representing recalcitrant organic matter, had a positive association with biodiversity at higher values. The effect of \texttt{depth\_m\_profondeur\_m} was non-monotonic, implying stratification of ecological communities along the depth gradient. Sediment texture features such as \texttt{sand\_pct} and \texttt{silt\_clay\_pct} also showed mild but ecologically relevant trends.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{GAM-smooth-function-plot.jpg}
+\caption{Generalized Additive Model (GAM) Smooth Function Plot}
+\label{fig:gam-smooth}
+\end{figure}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{linear-models.png}
+\caption{Linear Models Results}
+\label{fig:linear-models}
+\end{figure}
+
+\qquad The stepwise linear model outperformed others with the lowest AIC and competitive test error, making it the most effective and interpretable approach. However, since samples may be grouped by station or strata, we next apply mixed-effects models to account for potential spatial or hierarchical structure in the data.
+
+\subsection{Part 2: Incorporating Random Effects}
+
+\textbf{Research Question 2: } To what extent do seasonal and spatial factors influence biodiversity in the MPA, after accounting for environmental sediment conditions?
+
+% Cameron's Part 
+
+\subsection{Part 3:  Tree-Based Models for Uncovering Hidden Patterns}
+
+\qquad Used to explore potential nonlinear interactions and threshold effects beyond linear assumptions.
+
+\subsubsection{Regression Tree, and SHAP Analysis}
+
+\qquad To enhance model interpretability, a regression tree was constructed and SHAP (SHapley Additive exPlanations) analysis (seen Figure~\ref{fig:shap-analysis}) was performed. The first split in the regression tree occurred at \texttt{loss\_ash2} $\leq$ $0.054$, indicating that levels of recalcitrant organic matter significantly influenced biodiversity outcomes. SHAP analysis revealed that \texttt{tot\_wt\_g} (total biomass) had the strongest positive effect on model predictions, supporting its role as a proxy for habitat richness or food availability. Similarly, \texttt{sand\_pct} consistently contributed positively to predicted biodiversity, while \texttt{silt\_clay\_pct} had more mixed effects, highlighting the complex role of sediment texture. Moderate \texttt{water\_content\_ratio} values were found to be beneficial, whereas extreme dryness or saturation reduced predicted diversity. High levels of \texttt{tot\_perc\_loss\_\_} and \texttt{loss\_ash2} reduced model predictions, likely due to hypoxic conditions or sediment compaction. Depth also showed nonlinear effects on predictions, consistent with its influence on light, pressure, and thermal gradients in marine environments.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.8\textwidth]{SHAP-analysis-from-regression-tree.jpg}
+\caption{SHAP Analysis from Regression Tree Model}
+\label{fig:shap-analysis}
+\end{figure}
+
 
 \newpage
 \section{Results}

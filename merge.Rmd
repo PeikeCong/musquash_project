@@ -6,6 +6,7 @@ output: html_notebook
 # Load Data
 
 ```{r}
+library(ggplot2)
 library(readr)
 
 df1 <- read.csv("./data/Musquash_MPA_Benthos_Infauna.csv", encoding = 'latin1')
@@ -168,7 +169,7 @@ df1_avg <- df1_avg %>%
 ```
 
 ```{r}
-df1_avg
+names(df1_avg)
 ```
 
 ```{r}
@@ -311,5 +312,5 @@ df_merged
 ```
 
 ```{r}
-write.csv(df_merged, "E:\\MPA_project\\MPA_merged.csv", row.names = FALSE)
+write.csv(df_merged, "./data/MPA_merged.csv", row.names = FALSE)
 ```

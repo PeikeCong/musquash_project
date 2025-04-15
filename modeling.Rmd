@@ -8,7 +8,7 @@ output: html_notebook
 ```{r}
 library(readr)
 # Read the CSV file
-data <- read.csv("E:\\MPA_project\\MPA_merged.csv")
+data <- read.csv("./data/MPA_merged.csv")
 head(data)
 ```
 
@@ -473,7 +473,78 @@ draw(gam_model)
 ```
 
 ```{r}
-png("E:\\MPA_project\\gam_smooths.png", width = 1000, height = 800)
+png("./gam_smooths.png", width = 1000, height = 800)
 plot(gam_model, pages = 1, se = TRUE, shade = TRUE)
 dev.off()
+```
+
+```{r}
+
+
+data<-data%>%mutate(year = substr(set_id, 1, 4))
+data$season <- relevel(factor(data$season), ref = "Winter")
+data$strata <-as.factor(data$strata)
+data$year <-as.factor(data$year)
+data$n_scale <-scale(data$total_count)
+
+data_rm <- data%>%
+  rename(tot_perc_loss = tot_perc_loss__)
+
+```
+
+```{r}
+#compare mixed model to linear model
+metrics <- c("shannon_index")  ## remove simpson, richness, s_obs
+lm_mod <- list()
+mod <- list()
+
+for (m in metrics) {
+  cat("\n--- Metric:", m, "---\n")
+  
+  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + silt_clay_pct+ tot_perc_loss + n_scale"))
+  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + silt_clay_pct + tot_perc_loss + n_scale "))
+  lm_mod[[m]] <- lm(formula_lm, data = data_rm)
+  mod[[m]]    <- lmer(formula_lmer, data = data_rm)
+  
+  cat("\nLinear model ANOVA for", m, ":\n")
+  print(summary(lm_mod[[m]]))
+  print(anova(lm_mod[[m]]))
+  
+  cat("\nMixed model ANOVA for", m, ":\n")
+  print(summary(mod[[m]]))
+  print(anova(mod[[m]]))
+  lm_mod[[m]]|>plot()
+  
+  
+  # Residual diagnostics
+  par(mfrow = c(1, 2))
+  plot(fitted(mod[[m]]), resid(mod[[m]]),
+       main = paste("Residuals vs Fitted:", m),
+       xlab = "Fitted", ylab = "Residuals")
+  abline(h = 0, col = "red")
+  
+  qqnorm(resid(mod[[m]]), main = paste("QQ-Plot:", m))
+  qqline(resid(mod[[m]]))
+  par(mfrow = c(1, 1))
+  
+  plot(fitted(lm_mod[[m]]), lm_mod[[m]]$model[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lm):", m))
+    abline(0, 1, col = "red", lty = 2)
+
+    plot(fitted(mod[[m]]), mod[[m]]@frame[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lmer):", m))
+    abline(0, 1, col = "blue", lty = 2)
+}
+
+y_obs <- model.response(model.frame(mod[[m]]))
+x_fit <- fitted(mod[[m]])
+
+plot(x_fit, y_obs,
+     xlab = "Fitted values", ylab = "Observed",
+     main = paste("Observed vs Fitted (lmer):", m),
+     pch = 19)
+abline(0, 1, col = "blue", lty = 2)
+
 ```

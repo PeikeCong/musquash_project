@@ -45,6 +45,8 @@ shannon_indices <- species_counts %>%
   group_by(set_id) %>%
   summarise(shannon_index = shannon_index(total_count), .groups = "drop")
 
+
+
 # Step 4: Merge Shannon index back to original df1
 df_with_shannon <- df1 %>%
   left_join(shannon_indices, by = c("set_id"))
@@ -75,7 +77,7 @@ df_with_richness <- df_with_richness %>%
 
 ```{r}
 # Step 1: Separate numeric and categorical columns
-num_cols <- df_with_richness %>% select(where(is.numeric)) %>% colnames()
+num_cols <- df_with_richness %>% select(where(is.numeric)) %>% select (-total_count)%>%colnames()
 cat_cols <- df_with_richness %>% select(where(~ is.character(.) || is.factor(.))) %>% colnames()
 
 # Step 2: Define grouping column
@@ -89,7 +91,8 @@ df1_avg <- df_with_richness %>%
     across(all_of(setdiff(cat_cols, group_cols)), ~ first(.x), .names = "{.col}"),
     
     # Average the numeric columns
-    across(all_of(setdiff(num_cols, group_cols)), ~ mean(.x, na.rm = TRUE), .names = "{.col}"),
+    across(all_of(setdiff(num_cols, group_cols)), ~ first(.x), .names = "{.col}"),
+    across(all_of(c("total_count")), ~ sum(.x, na.rm = TRUE), .names = "{.col}"), ##should get the same values as mean.
     
     .groups = "drop"
   )

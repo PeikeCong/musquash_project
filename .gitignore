@@ -6,5 +6,23 @@ main.lof
 main.log
 main.lot
 main.out
-.Rproj.user\
+.Rproj.user/
+*.Rproj
 
+*.aux
+*.bbl
+*.blg
+*.brf
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.run.xml
+*.pdf

@@ -488,7 +488,8 @@ data$year <-as.factor(data$year)
 data$n_scale <-scale(data$total_count)
 
 data_rm <- data%>%
-  rename(tot_perc_loss = tot_perc_loss__)
+  rename(tot_perc_loss = tot_perc_loss__, 
+         depth = depth_m_profondeur_m)
 
 ```
 
@@ -546,5 +547,66 @@ plot(x_fit, y_obs,
      main = paste("Observed vs Fitted (lmer):", m),
      pch = 19)
 abline(0, 1, col = "blue", lty = 2)
+
+
+
+```
+
+```{r}
+library(modelsummary)
+modelsummary(
+  list("Linear Model" = lm_mod[['shannon_index']], "Linear Mixed Model" = mod[['shannon_index']]),
+  statistic = 'p.value',
+  stars = TRUE,
+  title = "Comparison of Shannon Diversity Models", coef_omit = "^(?!season|year2015|strata)", gof_omit = "Obs|BIC|ICC|Log|RMSE"
+)
+
+modelplot(lm_mod)+
+  aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
+  scale_color_manual(values = c("grey", "black"))
+
+```
+```{r}
+
+library(mgcv)
+library(gratia)
+gam_model <- gam(
+   shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct)+ strata + season + year+ s(lat, lon),
+  data = data_rm,
+  method = "REML"
+)
+
+
+gam_model |> summary()
+gam_model |> plot()
+gam_model |> gam.check()
+
+
+
+# Fit GAMM with random effect for strata, stuggles with depth and is likley better modelled without
+
+mod_gamm <- gamm(shannon_index~ season + year  + s(tot_perc_loss)+ s(silt_clay_pct) + s(lat, lon),
+                 random = list(strata = ~1),
+                 data = data_rm)
+
+# View model summary
+summary(mod_gamm$gam)
+
+plot(mod_gamm$gam, residuals = TRUE, pch = 19, cex = 0.3)
+
+plot(mod_gamm$gam, scheme = 2)
+
+
+```
+```{r}
+
+gam_model|>plot()
+modelsummary(gam_model, 
+             statistic = c("std.error", "statistic", "p.value"),
+             fmt = 3)
+
+modelplot(gam_model)+
+  aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
+  scale_color_manual(values = c("grey", "black"))
 
 ```

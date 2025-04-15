@@ -1,9 +1,32 @@
+# RStudio session files (always ignore)
 .Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
-musquash_project.Rproj
-.Rproj.user/ .gitignore
-.Rproj.user/
-modeling.nb.html
-merge.nb.html
+
+# Ignore R notebook previews
+*.nb.html
+
+# LaTeX build files
+*.aux
+*.bbl
+*.blg
+*.brf
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.run.xml
+*.pdf
+
+# Optional: ignore intermediate Quarto or markdown builds
+*_files/
+*.knit.md
+*.utf8.md

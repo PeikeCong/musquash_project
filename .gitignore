@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+main.*
+*.nb.html
+*.Rproj
+*.Rbuildignore
+.Rbuildignore
+.Rhistory
+.Rproj.user/shared/notebooks/paths

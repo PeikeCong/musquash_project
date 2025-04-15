@@ -275,7 +275,7 @@ df3_avg
 # df1: Benthic Infauna — keep ID + ecological summary info
 cols_df1 <- c(
   "set_id", "station", "strata_strate", "season_saison",
-  "total_count", "tot_wt_g", "shannon_index", "species_richness"
+  "total_count", "tot_wt_g", "shannon_index", "species_richness", "lat", "lon"
 )
 
 # df2: Sediment Grain Size — keep values needed for calculations or summaries

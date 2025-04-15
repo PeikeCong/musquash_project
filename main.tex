@@ -225,10 +225,11 @@ Table~\ref{tab:variables}.
 
 \subsection{Target Variable}
 
-\qquad Our primary response variable is total biomass (\texttt{tot\_wt\_g}),
-which represents the aggregate weight of all benthic organisms collected at each
-sampling event. This metric serves as a proxy for ecosystem productivity and
-health within the MPA.
+\qquad Our primary reponse variable is the shannon index,
+(\texttt{shannon\_index}), which is an biodiversity index used to evaluate the
+MPA diversity. In addition, species richness was used as  metric for ecosystem
+productivity and health. 
+
 
 \subsection{Explanatory Variables}
 
@@ -519,7 +520,8 @@ depth gradient. Sediment texture features such as \texttt{sand\_pct} and
 influence biodiversity in the MPA, after accounting for environmental sediment
 conditions?
 
-% Cameron's Part 
+%%% Still need to add this, making sure the our code merges. 
+
 
 \subsection{Part 3:  Tree-Based Models for Uncovering Hidden Patterns}
 
@@ -579,7 +581,11 @@ other (r = 0.91) and moderately correlated with \texttt{silt\_clay\_pct} (r =
 
 \subsection{Regression Tree Analysis}
 
-The final regression tree model (Figure~\ref{fig:regression-tree}) identified \texttt{loss\_ash2} (weight loss after 950°C burn) as the primary splitting variable with a threshold value of 0.054. This indicates that the organic matter content, particularly the component that combusts at high temperatures, is the most influential factor determining benthic biomass in the Musquash MPA.
+The final regression tree model (Figure~\ref{fig:regression-tree}) identified
+\texttt{loss\_ash2} (weight loss after 950°C burn) as the primary splitting
+variable with a threshold value of 0.054. This indicates that the organic matter
+content, particularly the component that combusts at high temperatures, is the
+most influential factor determining benthic biomass in the Musquash MPA.
 
 \begin{figure}[H]
 \centering
@@ -735,7 +741,9 @@ spatial gradients.
 
 \subsection{Variance Partitioning Analysis}
 
-To quantify the relative contributions of sediment conditions versus seasonal and spatial factors, we conducted variance partitioning analysis using redundancy analysis (RDA). The results showed that:
+To quantify the relative contributions of sediment conditions versus seasonal
+and spatial factors, we conducted variance partitioning analysis using
+redundancy analysis (RDA). The results showed that:
 
 \begin{itemize}
 

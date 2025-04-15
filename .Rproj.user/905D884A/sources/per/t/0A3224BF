@@ -3,7 +3,7 @@
     "path": "~/Library/CloudStorage/Dropbox/Documents/Study/05-2025Winter/STAT4620/R_Packages/musquashMPA/DESCRIPTION",
     "project_path": "DESCRIPTION",
     "type": "dcf",
-    "hash": "0",
+    "hash": "3673445989",
     "contents": "",
     "dirty": false,
     "created": 1744673960822.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "24,10",
-        "scrollLine": "8"
+        "cursorPosition": "7,66",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1744674272,
+    "lastKnownWriteTime": 1744676499,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1744674272047,
+    "last_content_update": 1744676499186,
     "read_only": false,
     "read_only_alternatives": []
 }

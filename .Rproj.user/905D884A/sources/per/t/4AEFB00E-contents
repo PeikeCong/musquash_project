@@ -1,0 +1,139 @@
+#' Benthos Infauna Data from Musquash MPA
+#'
+#' A dataset containing benthic infauna information collected from the Musquash
+#' Marine Protected Area in New Brunswick, Canada. This dataset includes taxonomic
+#' information and abundance counts of benthic organisms.
+#'
+#' @format A data frame containing information about benthic infauna species and their
+#'   abundance at different sampling locations within the Musquash MPA. The exact
+#'   number of rows and columns may vary, but key variables include:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{scientificName_Nom_scientifique}{Scientific name of the species}
+#'   \item{total_count}{Total number of individuals of the species found in the sample}
+#'   \item{phylum_Embranchement}{Taxonomic phylum of the species}
+#'   \item{class_Classe}{Taxonomic class of the species}
+#'   \item{order_Ordre}{Taxonomic order of the species}
+#'   \item{family_Famille}{Taxonomic family of the species}
+#'   \item{genus_Genre}{Taxonomic genus of the species}
+#' }
+#' @source Fisheries and Oceans Canada (DFO), Musquash Marine Protected Area monitoring program
+"benthos_data"
+
+#' Sediment Grain Size Data from Musquash MPA
+#'
+#' A dataset containing sediment grain size analysis results from samples collected
+#' at the Musquash Marine Protected Area in New Brunswick, Canada.
+#'
+#' @format A data frame containing sediment grain size composition at different
+#'   sampling locations within the Musquash MPA. The exact number of rows and
+#'   columns may vary, but key variables include:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{sand_pct}{Percentage of sand in the sediment sample}
+#'   \item{fine_sand_pct}{Percentage of fine sand in the sediment sample}
+#'   \item{silt_clay_pct}{Percentage of silt and clay in the sediment sample}
+#'   \item{gravel_pct}{Percentage of gravel in the sediment sample, if measured}
+#'   \item{date_collected}{Date when the sample was collected}
+#'   \item{latitude}{Latitude coordinate of the sampling location}
+#'   \item{longitude}{Longitude coordinate of the sampling location}
+#' }
+#' @source Fisheries and Oceans Canada (DFO), Musquash Marine Protected Area monitoring program
+"sediment_data"
+
+#' Sediment Loss on Ignition Data from Musquash MPA
+#'
+#' A dataset containing sediment loss on ignition (LOI) analysis results from
+#' samples collected at the Musquash Marine Protected Area. LOI is a method used
+#' to estimate organic matter content in sediments.
+#'
+#' @format A data frame containing sediment organic matter content information
+#'   at different sampling locations within the Musquash MPA. The exact number of
+#'   rows and columns may vary, but key variables include:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{wet_weight}{Weight of the wet sediment sample in grams}
+#'   \item{dry_weight}{Weight of the dried sediment sample in grams}
+#'   \item{ash_weight}{Weight of the sample after ignition (ashing) in grams}
+#'   \item{water_content_ratio}{Ratio of water content in the sample, calculated as (wet_weight - dry_weight) / wet_weight}
+#'   \item{organic_matter_pct}{Percentage of organic matter in the sample, calculated from weight loss during ignition}
+#'   \item{date_collected}{Date when the sample was collected}
+#'   \item{latitude}{Latitude coordinate of the sampling location}
+#'   \item{longitude}{Longitude coordinate of the sampling location}
+#' }
+#' @source Fisheries and Oceans Canada (DFO), Musquash Marine Protected Area monitoring program
+"loi_data"
+
+#' Sampling Set Data from Musquash MPA
+#'
+#' A dataset containing information about sampling events (sets) conducted at the
+#' Musquash Marine Protected Area in New Brunswick, Canada.
+#'
+#' @format A data frame containing metadata about sampling events within the
+#'   Musquash MPA. The exact number of rows and columns may vary, but key variables include:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{date_collected}{Date when the sample was collected}
+#'   \item{time_collected}{Time when the sample was collected}
+#'   \item{latitude}{Latitude coordinate of the sampling location}
+#'   \item{longitude}{Longitude coordinate of the sampling location}
+#'   \item{depth_m}{Water depth at the sampling location in meters}
+#'   \item{temperature_c}{Water temperature at the sampling location in degrees Celsius}
+#'   \item{salinity_ppt}{Water salinity at the sampling location in parts per thousand}
+#'   \item{station_id}{Identifier for the sampling station}
+#'   \item{strata_strate}{Sampling strata or zone within the MPA}
+#'   \item{season_saison}{Season when sampling was conducted}
+#'   \item{year_annee}{Year when sampling was conducted}
+#' }
+#' @source Fisheries and Oceans Canada (DFO), Musquash Marine Protected Area monitoring program
+"set_data"
+
+#' Location Clusters for Musquash MPA
+#'
+#' A dataset containing information about location clusters derived from spatial
+#' analysis of sampling sites within the Musquash Marine Protected Area.
+#'
+#' @format A data frame containing information about spatial clusters of sampling
+#'   locations within the Musquash MPA. The exact number of rows and columns may
+#'   vary, but key variables include:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{latitude}{Latitude coordinate of the sampling location}
+#'   \item{longitude}{Longitude coordinate of the sampling location}
+#'   \item{cluster_id}{Identifier for the spatial cluster to which the location belongs}
+#'   \item{distance_to_center}{Distance from the sampling location to the cluster center, if calculated}
+#'   \item{habitat_type}{Type of habitat associated with the cluster, if classified}
+#' }
+#' @source Derived from spatial analysis of Fisheries and Oceans Canada (DFO) Musquash MPA monitoring data
+"location_clusters"
+
+#' Merged Musquash MPA Dataset
+#'
+#' A comprehensive dataset merging information from benthos, sediment, and environmental
+#' data collected at the Musquash Marine Protected Area in New Brunswick, Canada.
+#'
+#' @format A data frame containing combined information from multiple data sources
+#'   for the Musquash MPA. The exact number of rows and columns may vary, but it
+#'   includes variables from benthos, sediment, and environmental monitoring:
+#' \describe{
+#'   \item{set_id}{Unique identifier for each sampling event}
+#'   \item{date_collected}{Date when the sample was collected}
+#'   \item{latitude}{Latitude coordinate of the sampling location}
+#'   \item{longitude}{Longitude coordinate of the sampling location}
+#'   \item{depth_m}{Water depth at the sampling location in meters}
+#'   \item{temperature_c}{Water temperature at the sampling location in degrees Celsius}
+#'   \item{salinity_ppt}{Water salinity at the sampling location in parts per thousand}
+#'   \item{station_id}{Identifier for the sampling station}
+#'   \item{strata_strate}{Sampling strata or zone within the MPA}
+#'   \item{season_saison}{Season when sampling was conducted}
+#'   \item{year_annee}{Year when sampling was conducted}
+#'   \item{sand_pct}{Percentage of sand in the sediment sample}
+#'   \item{fine_sand_pct}{Percentage of fine sand in the sediment sample}
+#'   \item{silt_clay_pct}{Percentage of silt and clay in the sediment sample}
+#'   \item{organic_matter_pct}{Percentage of organic matter in the sample}
+#'   \item{species_richness}{Number of different species found at the location}
+#'   \item{shannon_index}{Shannon diversity index calculated for the location}
+#'   \item{cluster_id}{Spatial cluster identifier, if available}
+#' }
+#' @source Compiled from multiple datasets collected by Fisheries and Oceans Canada (DFO) Musquash Marine Protected Area monitoring program
+"mpa_merged"

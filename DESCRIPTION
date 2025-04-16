@@ -1,0 +1,32 @@
+Package: musquashMPA
+Type: Package
+Title: Analysis Tools for Musquash Marine Protected Area Data
+Version: 0.1.0
+Authors@R: c(
+    person("Peike", "Cong", email = "pk376328@dal.ca", role = "aut"),
+    person("Cameron", "Moffatt", email = "cm853581@dal.ca", role = "aut"),
+    person("Hongren", "Zhu", email = "hongren.zhu@dal.ca", role = c("aut", "cre"))
+  )
+Description: This package provides tools for analyzing biodiversity and 
+    environmental data from the Musquash Marine Protected Area in New Brunswick, 
+    Canada. It includes functions for calculating diversity indices, 
+    preprocessing data, and visualizing spatial patterns.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends: 
+    R (>= 3.5.0)
+Imports: 
+    dplyr,
+    ggplot2,
+    tidyr,
+    vegan
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+usethis::use_roxygen_md()

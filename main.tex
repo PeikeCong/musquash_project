@@ -525,35 +525,36 @@ conditions?
 
 To evaluate the effect of seasonal and spatial variation, the grouping effect of
 \texttt{strata} was analyzed using  \texttt{season} and  \texttt{year} as
-covariates. Given the importance  of understanding the spatial patterns, the \texttt{longitude} and \texttt{latitude} were also used in the
-model. The sampling regime for this data posed a challenge for a basic longitudinal
-model as the location of each sample was different everytime, so the only
-grouping that could be used was the \texttt{strata}.
-
+covariates. Given the importance  of understanding the spatial patterns, the
+\texttt{longitude} and \texttt{latitude} were also used in the model. The
+sampling regime for this data posed a challenge for a basic longitudinal model
+as the location of each sample was different everytime, so the only grouping
+that could be used was the \texttt{strata}.
 
 To start out a basic linear model was evaluated, with stepwise AIC selection.
-This resulted in a base model for the grouping to be compared to. The major
+This resulted in a base model for the mixed model to be compared to. The major
 challenge for this was due to a small number of factors, cross validation using
-the mixed models were challenging - so AIC selection was used only. Shown below
-in figure \ref{fig:lmvslmmtable}, the linear model had a superior AIC to the mixed model, suggesting a better
-model fit. In both models the seasonal effects were small and negligible, while
-the temporal trends indicated a slight decline from the 2010 reference value.
-This suggests that there is a slight decline in biodiversity, however; give in
-the gaps in the data and the fluctuation along with the small magnitude - we
-would suggest the MPA is doing an adequate job of maintaining ecosystem health.
+the mixed models were challenging - so only AIC selection was used. Shown below
+in figure \ref{fig:lmvslmmtable}, the linear model had a superior AIC to the
+mixed model, suggesting a better model fit. In both models the seasonal effects
+were small and negligible, while the temporal trends indicated a slight decline
+from the 2010 reference value. This suggests that there is a slight decline in
+biodiversity, however; give in the gaps in the data and the fluctuation along
+with the small magnitude - we would suggest the MPA is doing an adequate job of
+maintaining ecosystem health.
 
 
 \begin{figure}[H]
     \centering
 
     \subfigure[Linear and Mixed Model Summary Table]{
-        \includegraphics[width=0.8\textwidth]{lmvslmmtable.png}
+        \includegraphics[width=0.5\textwidth]{lmvslmmtable.png}
         \label{fig:lmvslmmtable}
         \vspace{0.5em}
     }
 
     \subfigure[Partial Effects Plot for the Linear Model]{
-        \includegraphics[width=0.8\textwidth]{modelplot_lmvslmm.png}
+        \includegraphics[width=0.5\textwidth]{modelplot_lmvslmm.png}
         \label{fig:lmvslmm}
         \vspace{0.5em}
     }
@@ -563,14 +564,14 @@ would suggest the MPA is doing an adequate job of maintaining ecosystem health.
 \end{figure}
 
 Recognizing that covariate effect may not be non-linear, we also fitted both a
-additive model, and an additive mixed model - as we assumed normal residuals for
+additive model, and an additive mixed modes, assuming normal residuals for
 the Shannon index. Three models were compared, a full additive model, a partial
-addtivate model with predictors paired back using expert knowledge, and finally
-a additive mixed model.With this, a similar story was portrayed to the linear models
+addtivate model with predictors pared back using expert knowledge, and finally
+an additive mixed model. With this, a similar story was portrayed to the linear models
 - the model without random effect had a lower AIC indicating a better fit, seen
-below in \ref{fig:GAMtable}. The paired down mode possessed the best model
-performance of the three, with generally the same concensous as the previous.
-Negliagble seasonal effect, nor did the random grouping aid in performance. The
+below in \ref{fig:GAMtable}. The pared down model possessed the best model
+performance of the three, with generally the same conclusions as the previous.
+The random group, nor the seasonal effect aided the model performance. The
 covariate summary for the partial model is shown in \ref{fig:GAMcoplot}.
 
 The outcome is reasonable, as the limited overlap across year, strata, and season
@@ -582,12 +583,12 @@ effects, which was reflected in both the sets of models.
 \begin{figure}[H]
     \centering
     \subfigure[Additive and Additive Mixed Model AIC Comparison]{
-        \includegraphics[width=0.8\textwidth]{Gammtable.png}
+        \includegraphics[width=0.5\textwidth]{Gammtable.png}
         \label{fig:GAMtable}
         \vspace{0.5em}
     }
     \subfigure[Partial Effects from the Reduced Additive Model]{
-        \includegraphics[width=0.8\textwidth]{Gamm.png}
+        \includegraphics[width=0.5\textwidth]{Gamm.png}
         \label{fig:GAMcoplot}
         \vspace{0.5em}
     }

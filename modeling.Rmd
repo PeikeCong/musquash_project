@@ -1,0 +1,612 @@
+---
+title: "Modeling"
+output: html_notebook
+---
+
+# Data Preperation
+
+```{r}
+library(readr)
+# Read the CSV file
+data <- read.csv("./data/MPA_merged.csv")
+head(data)
+```
+
+```{r}
+library(dplyr)
+library(lme4)
+library(caret)
+library(ggplot2)
+```
+
+## Features Table
+
+```{r}
+num_cols <- c(
+  # Sediment Moisture / Grain Size
+  "wet_weight",           # Wet sediment weight (excluding container)
+  "dry_weight",           # Dry sediment weight (excluding container)
+  "water_content_ratio",  # Ratio of water content in sample
+  
+  # Particle Size Distribution
+  "sand_pct",             # % of coarse sand particles
+  "fine_sand_pct",        # % of fine sand (64µm) particles
+  "silt_clay_pct",        # % of silt/clay particles (<64µm)
+  
+  # Organic Matter (Loss on Ignition)
+  "air_dry_wt",           # Weight after air drying
+  "oven_dry_wt",          # Weight after oven drying
+  "loss_ash1",            # Weight loss after 475°C burn (organic matter)
+  "loss_ash2",            # Weight loss after 950°C burn (recalcitrant organics)
+  "tot_perc_loss__",      # Total % loss (combined phases)
+  
+  # Depth
+  "depth_m_profondeur_m",
+  
+  # sample weight
+  "tot_wt_g"
+)
+```
+
+## Correlation check
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+
+cor_data <- na.omit(data[, num_cols])
+cor_matrix <- cor(cor_data)
+
+melted_cor <- melt(cor_matrix)
+ggplot(melted_cor, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1,1), space = "Lab",
+                       name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 10, hjust = 1)) +
+  coord_fixed() +
+  labs(title = "Correlation Heatmap of Numerical Variables",
+       x = "", y = "")
+```
+
+## Train Test Split
+
+```{r}
+set.seed(123)
+
+train_indices <- sample(1:nrow(data), size = 0.8 * nrow(data))
+train_data <- data[train_indices, ]
+test_data <- data[-train_indices, ]
+
+nrow(train_data)
+nrow(test_data)
+```
+
+## PCA Check
+
+```{r}
+train_data <- train_data %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+```
+
+```{r}
+# --- Sediment Moisture / Grain Size ---
+moisture_train <- train_data %>%
+  select(wet_weight, dry_weight, water_content_ratio)
+
+moisture_pca <- prcomp(moisture_train, center = TRUE, scale. = TRUE)
+moisture_vars <- train_data %>%
+  select(wet_weight, dry_weight, water_content_ratio)
+moisture_pca <- prcomp(moisture_vars, center = TRUE, scale. = TRUE)
+
+# --- Particle Size Distribution ---
+particle_vars <- train_data %>%
+  select(sand_pct, fine_sand_pct, silt_clay_pct)
+particle_pca <- prcomp(particle_vars, center = TRUE, scale. = TRUE)
+
+# --- Organic Matter (LOI) ---
+organic_vars <- train_data %>%
+  select(air_dry_wt, oven_dry_wt, loss_ash1, loss_ash2, tot_perc_loss__)
+organic_pca <- prcomp(organic_vars, center = TRUE, scale. = TRUE)
+
+summary(moisture_pca)
+summary(particle_pca)
+summary(organic_pca)
+```
+
+## Preprocessing
+
+```         
+```
+
+```{r}
+# Fill missing value with mean
+train_data_filled <- train_data %>%
+  mutate(across(all_of(num_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+# Fill in test set
+test_data <- test_data %>%
+  mutate(across(all_of(num_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+train_data_filled
+```
+
+```{r}
+# Remove outliers based on z-score
+remove_outliers <- function(df, cols, threshold = 3) {
+  z_scores <- scale(df[, cols])
+  outlier_mask <- apply(abs(z_scores), 1, function(row) all(row < threshold))
+  df[outlier_mask, ]
+}
+
+train_data <- remove_outliers(train_data_filled, num_cols)
+```
+
+```{r}
+print(summary(train_data))
+```
+
+# Modeling
+
+## Linear Model
+
+### Stepwise AIC
+
+```{r}
+# only on numeric features
+numeric_features <- num_cols
+
+# Formula
+formula <- as.formula(paste("shannon_index ~", paste(numeric_features, collapse = " + ")))
+
+# fit
+lm_full <- lm(formula, data = train_data)
+
+# AIC stepwise
+lm_selected <- step(lm_full, direction = "backward")
+summary(lm_selected)
+```
+
+#### Residual Plots
+
+```{r}
+# residual plots - all features
+par(mfrow = c(2, 2))  # 2 rows x 2 cols
+plot(lm_full)  # Residuals vs Fitted, QQ Plot, Scale-Location, Residuals vs Leverage
+
+# residual plots - selected feature by stepwise
+par(mfrow = c(2, 2))
+plot(lm_selected)
+```
+
+```{r}
+library(glmnet)
+
+# transform into matrix
+x_cols <- num_cols
+
+x_train <- as.matrix(train_data[, x_cols])
+x_test  <- as.matrix(test_data[, x_cols])
+
+y_train <- train_data$shannon_index
+y_test  <- test_data$shannon_index
+```
+
+### Ridge Regression
+
+```{r}
+# Ridge: alpha = 0
+set.seed(123)
+cv_ridge <- cv.glmnet(x_train, y_train, alpha = 0)
+
+# best lambda
+best_lambda_ridge <- cv_ridge$lambda.min
+cat("Best lambda (Ridge):", best_lambda_ridge, "\n")
+
+# plot
+ridge_model <- glmnet(x_train, y_train, alpha = 0)
+coef_matrix_r <- as.matrix(ridge_model$beta)
+var_names_r <- rownames(coef_matrix_r)
+par(mar = c(5, 4, 4, 8), xpd = TRUE)
+matplot(log(ridge_model$lambda), t(coef_matrix_r), type = "l",
+        lty = 1, lwd = 2, col = rainbow(nrow(coef_matrix_r)),
+        xlab = "log(Lambda)", ylab = "Coefficients", main = "Ridge Path")
+legend("topright", inset = c(-0.25, 0), legend = var_names_r,
+       col = rainbow(nrow(coef_matrix_r)), lty = 1, cex = 0.5)
+
+# best lambda to fit
+ridge_final <- glmnet(x_train, y_train, alpha = 0, lambda = best_lambda_ridge)
+```
+
+```{r}
+cat("Ridge Final Model Coefficients:\n")
+print(coef(ridge_final))
+```
+
+### Lasso Regression
+
+```{r}
+library(glmnet)
+
+# Lasso: alpha = 1
+set.seed(123)
+cv_lasso <- cv.glmnet(x_train, y_train, alpha = 1)
+
+# best lambda with CV
+best_lambda_lasso <- cv_lasso$lambda.min
+cat("Best lambda (Lasso):", best_lambda_lasso, "\n")
+
+lasso_model <- glmnet(x_train, y_train, alpha = 1)
+
+# plot
+coef_matrix_l <- as.matrix(lasso_model$beta)
+var_names <- rownames(coef_matrix_l)
+par(mar = c(5, 4, 4, 8), xpd = TRUE)
+matplot(log(lasso_model$lambda), t(coef_matrix_l), type = "l",
+        lty = 1, lwd = 2, col = rainbow(nrow(coef_matrix_l)),
+        xlab = "log(Lambda)", ylab = "Coefficients", main = "Lasso Path")
+legend("topright", inset = c(-0.25, 0), legend = var_names,
+       col = rainbow(nrow(coef_matrix_l)), lty = 1, cex = 0.5)
+
+lasso_final <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda_lasso)
+```
+
+```{r}
+cat("Lasso Final Model Coefficients:\n")
+print(coef(lasso_final))
+```
+
+### Elastic Net (ridge + lasso) with cross validation
+
+```{r}
+set.seed(123)
+
+# Alpha values to test
+alpha_values <- seq(0, 1, by = 0.1)
+
+# Storage results
+cv_results <- list()
+min_mse <- numeric(length(alpha_values))
+best_lambdas <- numeric(length(alpha_values))
+
+# Cross-validation for alpha and lambda
+for (i in seq_along(alpha_values)) {
+  a <- alpha_values[i]
+  cv_fit <- cv.glmnet(x_train, y_train, alpha = a, nfolds = 10)
+  cv_results[[as.character(a)]] <- cv_fit
+  min_mse[i] <- min(cv_fit$cvm)
+  best_lambdas[i] <- cv_fit$lambda.min
+}
+
+# Create results data frame
+alpha_tuning_results <- data.frame(
+  Alpha = alpha_values,
+  RMSE = sqrt(min_mse),
+  Lambda = best_lambdas
+)
+
+# Plot RMSE vs Alpha
+ggplot(alpha_tuning_results, aes(x = Alpha, y = RMSE)) +
+  geom_line(color = "blue", size = 1.2) +
+  geom_point(size = 2, color = "red") +
+  ggtitle("Elastic Net: RMSE vs Alpha") +
+  theme_minimal()
+```
+
+```{r}
+# Find best alpha (lowest RMSE)
+best_alpha_index <- which.min(alpha_tuning_results$RMSE)
+best_alpha <- alpha_tuning_results$Alpha[best_alpha_index]
+best_lambda <- alpha_tuning_results$Lambda[best_alpha_index]
+
+cat("Best alpha:", best_alpha, "\n")
+cat("Best lambda:", best_lambda, "\n")
+```
+
+```{r}
+# Get the cv.glmnet object for the best alpha
+best_cv_model <- cv_results[[as.character(best_alpha)]]
+
+# Plot MSE vs log(lambda)
+plot(best_cv_model)
+title(paste("CV Error vs Log(Lambda) | Best Alpha =", best_alpha), line = 2.5)
+```
+
+### Prediction
+
+```{r}
+library(glmnet)
+library(Metrics)     
+library(ggplot2)
+
+y_test <- as.numeric(y_test)
+```
+
+```{r}
+library(Metrics)
+
+# Prepare train and test data frames
+train_df <- as.data.frame(x_train)
+train_df$shannon_index <- y_train
+
+test_df <- as.data.frame(x_test)
+test_df$shannon_index <- y_test
+
+# ---- Linear Model: Full ----
+y_pred_lm_full_train <- predict(lm_full, newdata = train_df)
+y_pred_lm_full_test  <- predict(lm_full, newdata = test_df)
+
+mse_lm_full_train <- mse(y_train, y_pred_lm_full_train)
+mse_lm_full_test  <- mse(y_test,  y_pred_lm_full_test)
+
+# ---- Linear Model: Stepwise ----
+y_pred_lm_step_train <- predict(lm_selected, newdata = train_df)
+y_pred_lm_step_test  <- predict(lm_selected, newdata = test_df)
+
+mse_lm_step_train <- mse(y_train, y_pred_lm_step_train)
+mse_lm_step_test  <- mse(y_test,  y_pred_lm_step_test)
+
+# Print summary
+cat("Linear Model (Full)  - Train MSE:", mse_lm_full_train, "| Test MSE:", mse_lm_full_test, "\n")
+cat("Linear Model (Stepwise) - Train MSE:", mse_lm_step_train, "| Test MSE:", mse_lm_step_test, "\n")
+```
+
+```{r}
+library(glmnet)
+library(Metrics)
+
+alpha_list <- c(0, 0.3, 0.8, 1)
+test_mse_list <- c()
+train_mse_list <- c()
+lambda_list <- c()
+model_names <- c("Ridge", "Elastic (0.3)", "Elastic (0.8)", "Lasso")
+
+for (i in seq_along(alpha_list)) {
+  a <- alpha_list[i]
+  
+  # Cross-validated model to find best lambda
+  cv_fit <- cv.glmnet(x_train, y_train, alpha = a, nfolds = 10)
+  best_lambda <- cv_fit$lambda.min
+  
+  # Final model with best lambda
+  model <- glmnet(x_train, y_train, alpha = a, lambda = best_lambda)
+  
+  # Predict on training and testing
+  y_pred_train <- predict(model, newx = x_train, s = best_lambda)
+  y_pred_test  <- predict(model, newx = x_test,  s = best_lambda)
+  
+  # Compute MSE
+  mse_train <- mse(y_train, y_pred_train)
+  mse_test  <- mse(y_test,  y_pred_test)
+  
+  # Print if you want
+  cat("Alpha =", a, "| Lambda =", best_lambda, 
+      "| Train MSE =", mse_train, "| Test MSE =", mse_test, "\n")
+  
+  # Store results
+  lambda_list <- c(lambda_list, best_lambda)
+  train_mse_list <- c(train_mse_list, mse_train)
+  test_mse_list  <- c(test_mse_list, mse_test)
+}
+
+# Create summary table
+results_df <- data.frame(
+  Model = model_names,
+  Alpha = alpha_list,
+  Lambda = lambda_list,
+  Train_MSE = train_mse_list,
+  Test_MSE = test_mse_list
+)
+
+print(results_df)
+```
+
+```{r}
+# Predict again just in case
+y_pred_ridge <- predict(ridge_model, s = best_lambda_ridge, newx = x_test)
+
+# Create a dataframe for plotting
+df_ridge <- data.frame(
+  Actual = y_test,
+  Predicted = as.numeric(y_pred_ridge)
+)
+
+# Plot
+library(ggplot2)
+ggplot(df_ridge, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "darkgreen", size = 2, alpha = 0.7) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  ggtitle("Ridge Regression: Predicted vs Actual") +
+  xlab("Actual shannon_index") +
+  ylab("Predicted shannon_index") +
+  theme_minimal()
+```
+
+## Generalized Addictive Model
+
+```{r}
+library(mgcv)
+
+# Combine training set for GAM
+train_df_gam <- as.data.frame(x_train)
+train_df_gam$shannon_index <- y_train
+
+# Fit GAM with smoothing splines for all numeric features
+gam_formula <- as.formula(paste("shannon_index ~", paste0("s(", num_cols, ")", collapse = " + ")))
+gam_model <- gam(gam_formula, data = train_df_gam)
+summary(gam_model)
+```
+
+```{r}
+train_df_gam <- as.data.frame(x_train)
+y_pred_gam_train <- predict(gam_model, newdata = train_df_gam)
+mse_gam_train <- mse(y_train, y_pred_gam_train)
+cat("GAM Train MSE:", mse_gam_train, "\n")
+
+test_df_gam <- as.data.frame(x_test)
+y_pred_gam <- predict(gam_model, newdata = test_df_gam)
+mse_gam <- mse(y_test, y_pred_gam)
+cat("GAM Test MSE:", mse_gam, "\n")
+```
+
+```{r}
+library(ggplot2)
+
+df_plot_gam <- data.frame(
+  Actual = y_test,
+  Predicted = y_pred_gam
+)
+
+ggplot(df_plot_gam, aes(x = Actual, y = Predicted)) +
+  geom_point(color = "steelblue", size = 2, alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+  ggtitle("GAM: Predicted vs Actual") +
+  theme_minimal()
+```
+
+```{r}
+library(gratia)
+draw(gam_model)
+```
+
+```{r}
+png("./gam_smooths.png", width = 1000, height = 800)
+plot(gam_model, pages = 1, se = TRUE, shade = TRUE)
+dev.off()
+```
+
+```{r}
+
+
+data<-data%>%mutate(year = substr(set_id, 1, 4))
+data$season <- relevel(factor(data$season), ref = "Winter")
+data$strata <-as.factor(data$strata)
+data$year <-as.factor(data$year)
+data$n_scale <-scale(data$total_count)
+
+data_rm <- data%>%
+  rename(tot_perc_loss = tot_perc_loss__, 
+         depth = depth_m_profondeur_m)
+
+```
+
+```{r}
+#compare mixed model to linear model
+metrics <- c("shannon_index")  ## remove simpson, richness, s_obs
+lm_mod <- list()
+mod <- list()
+
+for (m in metrics) {
+  cat("\n--- Metric:", m, "---\n")
+  
+  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + silt_clay_pct+ tot_perc_loss + n_scale"))
+  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + silt_clay_pct + tot_perc_loss + n_scale "))
+  lm_mod[[m]] <- lm(formula_lm, data = data_rm)
+  mod[[m]]    <- lmer(formula_lmer, data = data_rm)
+  
+  cat("\nLinear model ANOVA for", m, ":\n")
+  print(summary(lm_mod[[m]]))
+  print(anova(lm_mod[[m]]))
+  
+  cat("\nMixed model ANOVA for", m, ":\n")
+  print(summary(mod[[m]]))
+  print(anova(mod[[m]]))
+  lm_mod[[m]]|>plot()
+  
+  
+  # Residual diagnostics
+  par(mfrow = c(1, 2))
+  plot(fitted(mod[[m]]), resid(mod[[m]]),
+       main = paste("Residuals vs Fitted:", m),
+       xlab = "Fitted", ylab = "Residuals")
+  abline(h = 0, col = "red")
+  
+  qqnorm(resid(mod[[m]]), main = paste("QQ-Plot:", m))
+  qqline(resid(mod[[m]]))
+  par(mfrow = c(1, 1))
+  
+  plot(fitted(lm_mod[[m]]), lm_mod[[m]]$model[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lm):", m))
+    abline(0, 1, col = "red", lty = 2)
+
+    plot(fitted(mod[[m]]), mod[[m]]@frame[[m]],
+         xlab = "Fitted values", ylab = "Observed",
+         main = paste("Observed vs Fitted (lmer):", m))
+    abline(0, 1, col = "blue", lty = 2)
+}
+
+y_obs <- model.response(model.frame(mod[[m]]))
+x_fit <- fitted(mod[[m]])
+
+plot(x_fit, y_obs,
+     xlab = "Fitted values", ylab = "Observed",
+     main = paste("Observed vs Fitted (lmer):", m),
+     pch = 19)
+abline(0, 1, col = "blue", lty = 2)
+
+
+
+```
+
+```{r}
+library(modelsummary)
+modelsummary(
+  list("Linear Model" = lm_mod[['shannon_index']], "Linear Mixed Model" = mod[['shannon_index']]),
+  statistic = 'p.value',
+  stars = TRUE,
+  title = "Comparison of Shannon Diversity Models", coef_omit = "^(?!season|year2015|strata)", gof_omit = "Obs|BIC|ICC|Log|RMSE"
+)
+
+modelplot(lm_mod)+
+  aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
+  scale_color_manual(values = c("grey", "black"))
+
+```
+```{r}
+
+library(mgcv)
+library(gratia)
+gam_model <- gam(
+   shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct)+ strata + season + year+ s(lat, lon),
+  data = data_rm,
+  method = "REML"
+)
+
+
+gam_model |> summary()
+gam_model |> plot()
+gam_model |> gam.check()
+
+
+
+# Fit GAMM with random effect for strata, stuggles with depth and is likley better modelled without
+
+mod_gamm <- gamm(shannon_index~ season + year  + s(tot_perc_loss)+ s(silt_clay_pct) + s(lat, lon),
+                 random = list(strata = ~1),
+                 data = data_rm)
+
+# View model summary
+summary(mod_gamm$gam)
+
+plot(mod_gamm$gam, residuals = TRUE, pch = 19, cex = 0.3)
+
+plot(mod_gamm$gam, scheme = 2)
+
+
+```
+```{r}
+
+gam_model|>plot()
+modelsummary(gam_model, 
+             statistic = c("std.error", "statistic", "p.value"),
+             fmt = 3)
+
+modelplot(gam_model)+
+  aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
+  scale_color_manual(values = c("grey", "black"))
+
+```

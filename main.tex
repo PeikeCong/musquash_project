@@ -191,9 +191,9 @@ assessing benthic species population consistency and ecosystem dynamics.
 Specifically, we investigate two key research questions:
 
 \begin{itemize}
-    \item How do sediment composition explain the variation in infaunal
+    \item How does sediment composition explain the variation in infaunal
     biodiversity within the MPA?
-    \item To what extent do seasonal and spatial factors influence biodiversity
+    \item To what extent does seasonal and spatial factors influence biodiversity
     in the MPA, after accounting for environmental sediment conditions?
 \end{itemize}
 
@@ -708,12 +708,18 @@ also playing a significant role.
 \subsection{Spatial Distribution Patterns}
 
 \qquad Cluster analysis of the sampling stations based on sediment
-characteristics and biomass revealed six distinct spatial groups (Figure 2,
+characteristics and biomass revealed six distinct spatial groups (Figure \ref{{K-means.png},
 based on \texttt{6location\_clusters.csv}). These clusters showed strong spatial
 coherence, suggesting that the Musquash MPA contains distinct benthic habitats
 with characteristic sediment properties and biomass levels.
 
-%here insert a spacial cluater analysis
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{K-means.png}
+    \caption{Clustering from K-means}
+    \label{fig:K-means}
+    \end{figure}
+
 
 \qquad Cluster 1, located primarily in the upper estuary, was characterized by
 high fine sand content and moderate biomass. Clusters 4 and 6, distributed

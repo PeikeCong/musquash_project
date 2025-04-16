@@ -491,32 +491,32 @@ data$year <-as.factor(data$year)
 
 num_cols_rm <- c(
 
-  "lat",
-  "lon",
+  #"lat",
+  #"lon",
 
   'total_count', # total 
   # Sediment Moisture / Grain Size
-  "wet_weight",           # Wet sediment weight (excluding container)
+  #"wet_weight",           # Wet sediment weight (excluding container) 
   "dry_weight",           # Dry sediment weight (excluding container)
-  "water_content_ratio",  # Ratio of water content in sample
+  #"water_content_ratio",  # Ratio of water content in sample
   
   # Particle Size Distribution
-  "sand_pct",             # % of coarse sand particles
+  #"sand_pct",             # % of coarse sand particles
   "fine_sand_pct",        # % of fine sand (64µm) particles
   "silt_clay_pct",        # % of silt/clay particles (<64µm)
   
   # Organic Matter (Loss on Ignition)
   "air_dry_wt",           # Weight after air drying
   "oven_dry_wt",          # Weight after oven drying
-  "loss_ash1",            # Weight loss after 475°C burn (organic matter)
-  "loss_ash2",            # Weight loss after 950°C burn (recalcitrant organics)
+  #"loss_ash1",            # Weight loss after 475°C burn (organic matter)
+  #"loss_ash2",            # Weight loss after 950°C burn (recalcitrant organics)
   "tot_perc_loss",      # Total % loss (combined phases)
   
   # Depth
-  "depth",
+  "depth"
   
   # sample weight
-  "tot_wt_g"
+  #"tot_wt_g"
 )
 
 data_rm <- data%>%
@@ -551,7 +551,7 @@ train_data_rm <- remove_outliers(train_data_filled_rm, num_cols_rm)
 #was loosing the factors 
 train_data_rm <- train_data_rm %>%
   mutate(
-    season = relevel(factor(season, levels = levels(train_data_rm$season)), ref = "Winter"),
+    season = relevel(factor(season), ref = "Winter"),
     strata = factor(strata),
     year = factor(year)
   )
@@ -562,6 +562,8 @@ test_data_rm <- test_data_rm %>%
     strata = factor(strata, levels = levels(train_data_rm$strata)),
     year = factor(year, levels = levels(train_data_rm$year))
   )
+
+
 
 ```
 
@@ -574,10 +576,18 @@ mod <- list()
 for (m in metrics) {
   cat("\n--- Metric:", m, "---\n")
   
-  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + silt_clay_pct+ tot_perc_loss + total_count"))
-  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + silt_clay_pct + tot_perc_loss +  total_count "))
+  formula <- as.formula(paste("shannon_index ~", paste(c(num_cols_rm, "strata + year + season"), collapse = " + ")))
+  
+  formula_lmer <- as.formula(
+  paste(m, "~", paste(c(num_cols_rm, "(1|strata)", "year", "season"), collapse = " + "))
+)
+  formula_lm <- as.formula(
+  paste(m, "~", paste(c(num_cols_rm, "strata", "year", "season"), collapse = " + "))
+)
   lm_mod[[m]] <- lm(formula_lm, data = train_data_rm)
   mod[[m]]    <- lmer(formula_lmer, data = train_data_rm)
+  lm_mod[[m]]<-step(lm_mod[[m]], direction = 'backward', scope = list(lower = ~season + year +strata ))
+
   
   cat("\nLinear model ANOVA for", m, ":\n")
   print(summary(lm_mod[[m]]))
@@ -586,11 +596,14 @@ for (m in metrics) {
   cat("\nMixed model ANOVA for", m, ":\n")
   print(summary(mod[[m]]))
   print(anova(mod[[m]]))
+  par(mfrow = c(2, 2))
   lm_mod[[m]]|>plot()
+  par(mfrow = c(1, 2))
+  mod[[m]]|>plot()
   
   
   # Residual diagnostics
-  par(mfrow = c(1, 2))
+  par(mfrow = c(2, 1))
   plot(fitted(mod[[m]]), resid(mod[[m]]),
        main = paste("Residuals vs Fitted:", m),
        xlab = "Fitted", ylab = "Residuals")
@@ -598,7 +611,7 @@ for (m in metrics) {
   
   qqnorm(resid(mod[[m]]), main = paste("QQ-Plot:", m))
   qqline(resid(mod[[m]]))
-  par(mfrow = c(1, 1))
+  par(mfrow = c(1, 2))
   
   plot(fitted(lm_mod[[m]]), lm_mod[[m]]$model[[m]],
          xlab = "Fitted values", ylab = "Observed",
@@ -612,44 +625,49 @@ for (m in metrics) {
     print(AIC(lm_mod[[m]], mod[[m]]))
 }
 
-y_obs <- model.response(model.frame(mod[[m]]))
-x_fit <- fitted(mod[[m]])
-
-plot(x_fit, y_obs,
-     xlab = "Fitted values", ylab = "Observed",
-     main = paste("Observed vs Fitted (lmer):", m),
-     pch = 19)
-abline(0, 1, col = "blue", lty = 2)
-
-
-
-
 
 ```
 
 ```{r}
+
+
+lm_clean <- lm_mod[['shannon_index']]
+class(lm_clean) <- "lm"
 library(modelsummary)
 modelsummary(
-  list("Linear Model" = lm_mod[['shannon_index']], "Linear Mixed Model" = mod[['shannon_index']]),
+  list("Linear Model" = lm_clean , mod[[m]]),
   statistic = 'p.value',
   stars = TRUE,
   title = "Comparison of Shannon Diversity Models", coef_omit = "^(?!season|year2015|strata)", gof_omit = "Obs|BIC|ICC|Log|RMSE"
-)
+, )
 
-modelplot(lm_mod)+
+p<- modelplot(lm_mod)+
   aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +
   scale_color_manual(values = c("grey", "black"))
 
-```
-```{r}
+ggsave("modelplot_lmvslmm.png", plot = p, width = 8, height = 6, dpi = 300)
 
+```
+
+```{r}
+library(Metrics)
 library(mgcv)
 library(gratia)
+
+test_data_rm$strata <- factor(test_data_rm$strata, levels = levels(train_data_rm$strata))
 gam_model <- gam(
-   shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct)+ strata + season + year+ s(lat, lon),
+   shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct)+strata + season + year+ s(lat, lon),
   data = train_data_rm,
   method = "REML"
 )
+
+gam_model2 <- gam(
+   shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct) +s(fine_sand_pct) +strata + season + year+ s(lat, lon),
+  data = train_data_rm,
+  method = "REML"
+)
+
+
 
 
 gam_model |> summary()
@@ -660,7 +678,7 @@ gam_model |> gam.check()
 
 # Fit GAMM with random effect for strata, stuggles with depth and is likley better modelled without
 
-mod_gamm <- gamm(shannon_index~ season + year  + s(tot_perc_loss)+ s(silt_clay_pct) + s(lat, lon),
+mod_gamm <- gamm(shannon_index~ season + year  + s(tot_perc_loss)+ s(fine_sand_pct) + s(silt_clay_pct) + s(lat, lon),
                  random = list(strata = ~1),
                  data = train_data_rm)
 
@@ -672,13 +690,17 @@ plot(mod_gamm$gam, residuals = TRUE, pch = 19, cex = 0.3)
 plot(mod_gamm$gam, scheme = 2)
 
 
+
+AIC(gam_model, gam_model2, mod_gamm$lme)
+
 ```
 ```{r}
 
 gam_model|>plot()
-modelsummary(gam_model, 
-             statistic = c("std.error", "statistic", "p.value"),
-             fmt = 3)
+modelsummary(list("Full Model GAM"=gam_model, "Parital Model GAM"=gam_model2, "GAMM"=mod_gamm), 
+             statistic = c( "p.value"),
+  stars = TRUE,
+  title = "Comparison of Shannon Diversity Models", coef_omit = "^(?!season|year2015|strata)", gof_omit = "Obs|BIC|ICC|Log|RMSE")
 
 modelplot(gam_model)+
   aes(color = ifelse(p.value < 0.05, "Significant", "Not significant")) +

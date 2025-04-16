@@ -18,6 +18,7 @@
 \usepackage{multirow}%Para usar filas multiples
 \usepackage{cite} %Para contraer citas
 \usepackage{hyperref}
+\usepackage{placeins}
 
 \usepackage{listings} %Para incluir matlab -no colocar ñ o tildes en codigo matlab
 \usepackage{color} %red, green, blue, yellow, cyan, magenta, black, white
@@ -444,7 +445,7 @@ leverage plots showed no signs of heteroscedasticity or influential outliers.
 applied regularized regression techniques with cross-validation for
 hyperparameter tuning as shown in Figures~\ref{fig:reg-plot-lambda-1},
 \ref{fig:reg-plot-lambda-2}, and \ref{fig:tune-lambda-mse}. Lasso regression
-selected a sparse model, identifying \textt{sand\_pct}, \texttt{air\_dry\_wt},
+selected a sparse model, identifying \texttt{sand\_pct}, \texttt{air\_dry\_wt},
 and \texttt{depth\_m\_profondeur\_m} as positive predictors, and
 \texttt{tot\_perc\_loss\_\_} as a negative predictor. This supports the idea
 that coarse sediment and depth are favorable for biodiversity, while excess
@@ -709,7 +710,7 @@ also playing a significant role.
 \subsection{Spatial Distribution Patterns}
 
 \qquad Cluster analysis of the sampling stations based on sediment
-characteristics and biomass revealed six distinct spatial groups (Figure \ref{{K-means.png},
+characteristics and biomass revealed six distinct spatial groups (Figure \ref{K-means.png},
 based on \texttt{6location\_clusters.csv}). These clusters showed strong spatial
 coherence, suggesting that the Musquash MPA contains distinct benthic habitats
 with characteristic sediment properties and biomass levels.

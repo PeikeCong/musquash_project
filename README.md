@@ -12,15 +12,18 @@ You can install the development version of musquashMPA from [GitHub](https://git
 
 ``` r
 # install.packages("pak")
-pak::pak("PeikeCong/musquash_project")
+devtools::install_github("PeikeCong/musquash_project")
 ```
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
 
 ``` r
 library(musquashMPA)
 ## basic example code
+
+musquashMPA::preprocess_mpa_data(data,impute_missing = FALSE)
+
+
 ```
 

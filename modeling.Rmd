@@ -477,35 +477,107 @@ png("./gam_smooths.png", width = 1000, height = 800)
 plot(gam_model, pages = 1, se = TRUE, shade = TRUE)
 dev.off()
 ```
-
+## Question 2 - Seasonal and spatial factors
 ```{r}
-
-
+#same as above, but including Year, lat, lon
+#Best way to merge data, where slightly different parameters are used without effecting stepwise regression steps above.
+set.seed(123)
 data<-data%>%mutate(year = substr(set_id, 1, 4))
-data$season <- relevel(factor(data$season), ref = "Winter")
-data$strata <-as.factor(data$strata)
+data$season_saison <- relevel(factor(data$season_saison), ref = "Winter")
+data$strata_strate <-as.factor(data$strata_strate)
 data$year <-as.factor(data$year)
-data$n_scale <-scale(data$total_count)
+
+
+
+num_cols_rm <- c(
+
+  "lat",
+  "lon",
+
+  'total_count', # total 
+  # Sediment Moisture / Grain Size
+  "wet_weight",           # Wet sediment weight (excluding container)
+  "dry_weight",           # Dry sediment weight (excluding container)
+  "water_content_ratio",  # Ratio of water content in sample
+  
+  # Particle Size Distribution
+  "sand_pct",             # % of coarse sand particles
+  "fine_sand_pct",        # % of fine sand (64µm) particles
+  "silt_clay_pct",        # % of silt/clay particles (<64µm)
+  
+  # Organic Matter (Loss on Ignition)
+  "air_dry_wt",           # Weight after air drying
+  "oven_dry_wt",          # Weight after oven drying
+  "loss_ash1",            # Weight loss after 475°C burn (organic matter)
+  "loss_ash2",            # Weight loss after 950°C burn (recalcitrant organics)
+  "tot_perc_loss",      # Total % loss (combined phases)
+  
+  # Depth
+  "depth",
+  
+  # sample weight
+  "tot_wt_g"
+)
 
 data_rm <- data%>%
   rename(tot_perc_loss = tot_perc_loss__, 
-         depth = depth_m_profondeur_m)
+         depth = depth_m_profondeur_m,
+         season = season_saison,
+         strata = strata_strate)
+
+
+
+train_indices_rm <- sample(1:nrow(data_rm), size = 0.8 * nrow(data_rm))
+train_data_rm <- data_rm[train_indices_rm, ]
+test_data_rm <- data_rm[-train_indices_rm, ]
+
+nrow(train_data_rm)
+nrow(test_data_rm)
+
+train_data_rm <- train_data_rm %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+
+train_data_filled_rm <- train_data_rm %>%
+  mutate(across(all_of(num_cols_rm), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+# Fill in test set
+test_data_rm <- test_data_rm %>%
+  mutate(across(all_of(num_cols_rm), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+train_data_filled_rm
+train_data_rm <- remove_outliers(train_data_filled_rm, num_cols_rm)
+
+#was loosing the factors 
+train_data_rm <- train_data_rm %>%
+  mutate(
+    season = relevel(factor(season, levels = levels(train_data_rm$season)), ref = "Winter"),
+    strata = factor(strata),
+    year = factor(year)
+  )
+
+test_data_rm <- test_data_rm %>%
+  mutate(
+    season = relevel(factor(season, levels = levels(train_data_rm$season)), ref = "Winter"),
+    strata = factor(strata, levels = levels(train_data_rm$strata)),
+    year = factor(year, levels = levels(train_data_rm$year))
+  )
 
 ```
 
 ```{r}
 #compare mixed model to linear model
-metrics <- c("shannon_index")  ## remove simpson, richness, s_obs
+metrics <- c("shannon_index")  ## remove simpson, species_richness, s_obs
 lm_mod <- list()
 mod <- list()
 
 for (m in metrics) {
   cat("\n--- Metric:", m, "---\n")
   
-  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + silt_clay_pct+ tot_perc_loss + n_scale"))
-  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + silt_clay_pct + tot_perc_loss + n_scale "))
-  lm_mod[[m]] <- lm(formula_lm, data = data_rm)
-  mod[[m]]    <- lmer(formula_lmer, data = data_rm)
+  formula_lmer <- as.formula(paste0(m, " ~ season + year + (1|strata) + silt_clay_pct+ tot_perc_loss + total_count"))
+  formula_lm   <- as.formula(paste0(m, " ~ season + year + strata + silt_clay_pct + tot_perc_loss +  total_count "))
+  lm_mod[[m]] <- lm(formula_lm, data = train_data_rm)
+  mod[[m]]    <- lmer(formula_lmer, data = train_data_rm)
   
   cat("\nLinear model ANOVA for", m, ":\n")
   print(summary(lm_mod[[m]]))
@@ -537,6 +609,7 @@ for (m in metrics) {
          xlab = "Fitted values", ylab = "Observed",
          main = paste("Observed vs Fitted (lmer):", m))
     abline(0, 1, col = "blue", lty = 2)
+    print(AIC(lm_mod[[m]], mod[[m]]))
 }
 
 y_obs <- model.response(model.frame(mod[[m]]))
@@ -547,6 +620,8 @@ plot(x_fit, y_obs,
      main = paste("Observed vs Fitted (lmer):", m),
      pch = 19)
 abline(0, 1, col = "blue", lty = 2)
+
+
 
 
 
@@ -572,7 +647,7 @@ library(mgcv)
 library(gratia)
 gam_model <- gam(
    shannon_index ~ s(depth) + s(tot_perc_loss)+ s(silt_clay_pct)+ strata + season + year+ s(lat, lon),
-  data = data_rm,
+  data = train_data_rm,
   method = "REML"
 )
 
@@ -587,7 +662,7 @@ gam_model |> gam.check()
 
 mod_gamm <- gamm(shannon_index~ season + year  + s(tot_perc_loss)+ s(silt_clay_pct) + s(lat, lon),
                  random = list(strata = ~1),
-                 data = data_rm)
+                 data = train_data_rm)
 
 # View model summary
 summary(mod_gamm$gam)

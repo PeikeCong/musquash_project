@@ -43,7 +43,10 @@
 \makeatother
 
 \pagestyle{fancy}
-%\fancyhf{}
+\fancyhf{}
+\fancyhead[L]{\thesubsection}
+\fancyhead[R]{\leftmark}
+\fancyfoot[C]{\thepage}
 %\rhead{\textit{}}
 %\lhead{\textit{}}
 %\cfoot{\thepage}
@@ -544,7 +547,6 @@ biodiversity, however; give in the gaps in the data and the fluctuation along
 with the small magnitude - we would suggest the MPA is doing an adequate job of
 maintaining ecosystem health.
 
-
 \begin{figure}[H]
     \centering
 
@@ -710,7 +712,7 @@ also playing a significant role.
 \subsection{Spatial Distribution Patterns}
 
 \qquad Cluster analysis of the sampling stations based on sediment
-characteristics and biomass revealed six distinct spatial groups (Figure \ref{K-means.png},
+characteristics and biomass revealed six distinct spatial groups (Figure~\ref{fig:K-means},
 based on \texttt{6location\_clusters.csv}). These clusters showed strong spatial
 coherence, suggesting that the Musquash MPA contains distinct benthic habitats
 with characteristic sediment properties and biomass levels.
@@ -788,7 +790,7 @@ with summer samples containing on average $26\%$ more species than winter
 samples across comparable sediment conditions. This seasonal effect was most
 pronounced in the intertidal zone. Community composition analysis using
 PERMANOVA revealed that season accounted for $12.3\%$ of community structure
-variation (p < 0.001) after controlling for all measured sediment parameters.
+variation ($p < 0.001$) after controlling for all measured sediment parameters.
 This indicates distinct seasonal assemblages that cannot be explained by changes
 in sediment conditions alone.
 
@@ -921,7 +923,7 @@ or abundant periods.
 
 \qquad Several limitations should be considered when interpreting our results.
 First, temporal data gaps—particularly the incomplete sediment records from
-earlier years—limit our capacity to evaluate long-term trends in benthic biomass
+earlier years — limit our capacity to evaluate long-term trends in benthic biomass
 and its connections to environmental drivers. This restricts the temporal depth
 of our analysis and may overlook important patterns of change. Second, our
 modeling approach concentrates solely on abiotic factors and does not

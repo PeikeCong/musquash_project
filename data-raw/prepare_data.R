@@ -1,11 +1,11 @@
 library(readr)
 
-benthos_data <- read.csv("data-raw/Musquash_MPA_Benthos_Infauna.csv", encoding = "latin1")
-sediment_data <- read.csv("data-raw/Musquash_MPA_Sediment_Grain_Size.csv", encoding = "latin1")
-loi_data <- read.csv("data-raw/Musquash_MPA_Sediment_Loss_Ignition.csv", encoding = "latin1")
-set_data <- read.csv("data-raw/Musquash_MPA_Set_Data.csv", encoding = "latin1")
-location_clusters <- read.csv("data-raw/6location_clusters.csv")
-mpa_merged <- read.csv("data-raw/MPA_merged.csv")
+benthos_data <- read.csv("data-raw/Musquash_MPA_Benthos_Infauna.csv", encoding = "latin1", sep = ",")
+sediment_data <- read.csv("data-raw/Musquash_MPA_Sediment_Grain_Size.csv", encoding = "latin1", sep = ",")
+loi_data <- read.csv("data-raw/Musquash_MPA_Sediment_Loss_Ignition.csv", encoding = "latin1", sep = ",")
+set_data <- read.csv("data-raw/Musquash_MPA_Set_Data.csv", encoding = "latin1", sep = ",")
+location_clusters <- read.csv("data-raw/6location_clusters.csv", sep = ",")
+mpa_merged <- read.csv("data-raw/MPA_merged.csv", sep = ",")
 
 # add data clean add preprocess code here
 # ...

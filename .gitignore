@@ -7,3 +7,6 @@ main.*
 *.Rproj
 .Rbuildignore
 .Rproj.user/shared/notebooks/paths
+inst/doc
+/doc/
+/Meta/
